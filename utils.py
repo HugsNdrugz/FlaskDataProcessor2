@@ -4,12 +4,22 @@ from datetime import datetime
 import os
 import psycopg2
 from psycopg2 import sql
+import openpyxl
 
-# Database connection
 def get_db_connection():
     return psycopg2.connect(os.environ['DATABASE_URL'])
 
-# Create tables
+def test_db_connection():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('SELECT 1')
+        cur.close()
+        conn.close()
+        return "Success"
+    except Exception as e:
+        return f"Failed: {str(e)}"
+
 def create_tables():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -78,13 +88,11 @@ def create_tables():
     cur.close()
     conn.close()
 
-# Detect file encoding
 def detect_encoding(file_path):
     with open(file_path, 'rb') as f:
         result = chardet.detect(f.read())
     return result['encoding']
 
-# Convert time to UTC safely
 def convert_to_utc_safe(time_str, format_str="%b %d, %I:%M %p"):
     try:
         dt = datetime.strptime(time_str, format_str)
@@ -93,7 +101,6 @@ def convert_to_utc_safe(time_str, format_str="%b %d, %I:%M %p"):
     except ValueError:
         return None
 
-# Process data based on file type
 def process_data(df):
     columns = set(df.columns.str.lower())
     
@@ -120,7 +127,6 @@ def process_data(df):
     else:
         raise ValueError("Unknown file type")
 
-# Insert data into database
 def insert_data(table_name, df):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -139,18 +145,19 @@ def insert_data(table_name, df):
     cur.close()
     conn.close()
 
-# Process and insert data
 def process_and_insert_data(file_path):
     try:
-        if file_path.endswith('.csv'):
+        file_extension = os.path.splitext(file_path)[1].lower()
+        if file_extension == '.csv':
             encoding = detect_encoding(file_path)
             df = pd.read_csv(file_path, encoding=encoding)
-        elif file_path.endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(file_path)
+        elif file_extension in ('.xlsx', '.xls'):
+            df = pd.read_excel(file_path, engine='openpyxl')
         else:
-            raise ValueError("Unsupported file type")
+            raise ValueError(f"Unsupported file type: {file_extension}")
         
         table_name, processed_df = process_data(df)
         insert_data(table_name, processed_df)
+        print(f"Successfully processed and inserted data from {file_path}")
     except Exception as e:
-        raise Exception(f"Error processing file: {str(e)}")
+        raise Exception(f"Error processing file {file_path}: {str(e)}")

@@ -1,7 +1,8 @@
 import os
 from flask import Flask, render_template, request, flash, redirect, url_for
 from werkzeug.utils import secure_filename
-from utils import process_and_insert_data, create_tables
+from utils import process_and_insert_data, create_tables, test_db_connection
+import psycopg2
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -42,4 +43,6 @@ def upload_file():
 
 if __name__ == '__main__':
     create_tables()
+    connection_status = test_db_connection()
+    print(f"Database connection status: {connection_status}")
     app.run(host='0.0.0.0', port=5000)
