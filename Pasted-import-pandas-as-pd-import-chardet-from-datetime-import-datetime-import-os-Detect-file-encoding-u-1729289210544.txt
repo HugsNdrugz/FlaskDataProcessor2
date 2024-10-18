@@ -2,8 +2,6 @@ import pandas as pd
 import chardet
 from datetime import datetime
 import os
-import psycopg2
-from psycopg2 import sql
 
 # Detect file encoding using chardet
 def detect_encoding(file_path):
@@ -77,106 +75,6 @@ def process_data(data):
 
     return data
 
-def get_db_connection():
-    return psycopg2.connect(os.environ['DATABASE_URL'])
-
-def test_db_connection():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT 1')
-        cur.close()
-        conn.close()
-        return "Success"
-    except Exception as e:
-        return f"Failed: {str(e)}"
-
-def create_tables():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    tables = [
-        """
-        CREATE TABLE IF NOT EXISTS calls (
-            call_id SERIAL PRIMARY KEY,
-            contact_id VARCHAR(50),
-            call_type VARCHAR(50),
-            call_time TIMESTAMP,
-            duration INTEGER,
-            location TEXT
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS contacts (
-            contact_id SERIAL PRIMARY KEY,
-            contact_name VARCHAR(255),
-            phone_number VARCHAR(50),
-            email VARCHAR(255)
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS sms (
-            sms_id SERIAL PRIMARY KEY,
-            sender_id VARCHAR(50),
-            receiver_id VARCHAR(50),
-            message_type VARCHAR(50),
-            message_time TIMESTAMP,
-            message_text TEXT,
-            location TEXT
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS applications (
-            application_id SERIAL PRIMARY KEY,
-            application_name VARCHAR(255),
-            package_name VARCHAR(255),
-            installed_date TIMESTAMP
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS keylogs (
-            keylog_id SERIAL PRIMARY KEY,
-            application_id VARCHAR(50),
-            log_time TIMESTAMP,
-            keylog_text TEXT
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS chats (
-            chat_id SERIAL PRIMARY KEY,
-            messenger VARCHAR(50),
-            time TIMESTAMP,
-            sender VARCHAR(50),
-            text TEXT
-        )
-        """
-    ]
-    
-    for table in tables:
-        cur.execute(table)
-    
-    conn.commit()
-    cur.close()
-    conn.close()
-
-def insert_data(table_name, df):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    columns = df.columns.tolist()
-    values = [tuple(x) for x in df.to_numpy()]
-    
-    insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
-        sql.Identifier(table_name),
-        sql.SQL(', ').join(map(sql.Identifier, columns)),
-        sql.SQL(', ').join(sql.Placeholder() * len(columns))
-    )
-    
-    cur.executemany(insert_query, values)
-    conn.commit()
-    cur.close()
-    conn.close()
-
 # Process and insert a single file
 def process_and_insert_data(file_path):
     try:
@@ -200,15 +98,7 @@ def process_and_insert_data(file_path):
 
         # Clean and process the data
         df_cleaned = process_data(df)
-        
-        # Detect file type and insert into appropriate table
-        table_name = detect_file_type(df_cleaned)
-        if table_name:
-            insert_data(table_name, df_cleaned)
-            print(f"Successfully processed and inserted data from {file_path} into {table_name} table")
-        else:
-            print(f"Could not determine table for {file_path}. Data not inserted.")
+        print(f"Processed {os.path.basename(file_path)} successfully.")
 
     except Exception as e:
-        print(f"Error processing file {file_path}: {e}")
-        raise
+        print(f"Error processing {os.path.basename(file_path)}: {e}")
