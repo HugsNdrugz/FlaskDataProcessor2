@@ -32,15 +32,8 @@ def upload_file():
             file.save(file_path)
             
             try:
-                if filename == 'callex.csv':
-                    process_and_insert_data(file_path)
-                    flash('Call data successfully uploaded and processed')
-                elif filename == 'smsex.csv':
-                    process_and_insert_data(file_path)
-                    flash('SMS data successfully uploaded and processed')
-                else:
-                    process_and_insert_data(file_path)
-                    flash('File successfully uploaded and processed')
+                process_and_insert_data(file_path)
+                flash('File successfully uploaded and processed')
             except Exception as e:
                 flash(f'Error processing file: {str(e)}')
             

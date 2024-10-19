@@ -39,10 +39,19 @@ def process_data(data):
 
     if 'sms type' in columns:
         print("Processing as SMS...")
-        data['Time'] = data['Time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
-        data['From/To'] = data['From/To'].str.strip()
-        data['Text'] = data['Text'].str.strip()
+        data = data.copy()
+        data.rename(columns={
+            'SMS type': 'message_type',
+            'Time': 'message_time',
+            'From/To': 'sender_receiver',
+            'Text': 'message_text',
+            'Location': 'location'
+        }, inplace=True)
+        data['message_time'] = data['message_time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
+        data[['sender_id', 'receiver_id']] = data['sender_receiver'].str.split(',', expand=True)
+        data.drop('sender_receiver', axis=1, inplace=True)
         data.fillna("Unknown", inplace=True)
+        return data[['sender_id', 'receiver_id', 'message_type', 'message_time', 'message_text', 'location']]
 
     elif 'call type' in columns:
         print("Processing as Calls...")
@@ -107,10 +116,16 @@ def insert_data(table_name, df):
         sql.SQL(', ').join(sql.Placeholder() * len(columns))
     )
 
-    cur.executemany(insert_query, values)
-    conn.commit()
-    cur.close()
-    conn.close()
+    try:
+        cur.executemany(insert_query, values)
+        conn.commit()
+        print(f"Successfully inserted {len(values)} rows into {table_name} table")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error inserting data into {table_name} table: {str(e)}")
+    finally:
+        cur.close()
+        conn.close()
 
 def process_and_insert_data(file_path):
     try:
