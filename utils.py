@@ -228,6 +228,7 @@ def test_db_connection():
         cur.execute('SELECT 1')
         cur.close()
         conn.close()
-        return "Success"
+        return True
     except Exception as e:
-        return f"Failed: {str(e)}"
+        print(f'Database connection error: {str(e)}')
+        return False

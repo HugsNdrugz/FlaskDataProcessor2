@@ -18,6 +18,7 @@ def allowed_file(filename):
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
+    db_connected = test_db_connection()
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('No file part')
@@ -38,7 +39,7 @@ def upload_file():
                 flash(f'Error processing file: {str(e)}')
             
             return redirect(url_for('upload_file'))
-    return render_template('upload.html')
+    return render_template('upload.html', db_connected=db_connected)
 
 if __name__ == '__main__':
     create_tables()

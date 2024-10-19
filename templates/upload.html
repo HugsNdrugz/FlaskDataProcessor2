@@ -5,8 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Data File</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <style>
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .disconnected {
+            background-color: #F44336;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.5);
+        }
+    </style>
 </head>
 <body>
+    <div class="status-indicator {% if db_connected %}connected{% else %}disconnected{% endif %}">
+        {% if db_connected %}
+            Connected
+        {% else %}
+            Disconnected
+        {% endif %}
+    </div>
     <div class="container mt-5">
         <h1 class="mb-4">Upload Data File</h1>
         {% with messages = get_flashed_messages() %}
