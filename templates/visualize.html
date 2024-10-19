@@ -6,32 +6,12 @@
     <title>Data Visualization</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
         body {
             transition: background-color 0.5s ease, color 0.5s ease;
         }
         .card {
             transition: background-color 0.5s ease, box-shadow 0.5s ease;
-        }
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-        }
-        .chart-placeholder {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            font-size: 1.2rem;
-            border-radius: 0.25rem;
-        }
-        .summary-stats {
-            border-radius: 0.25rem;
-            padding: 10px;
-            margin-bottom: 20px;
         }
         #dark-mode-toggle {
             position: fixed;
@@ -57,6 +37,25 @@
         .toast.show {
             opacity: 1;
             transform: translateY(0);
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 2rem;
+            height: 2rem;
+            vertical-align: text-bottom;
+            border: 0.25em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+        .search-input {
+            margin-bottom: 1rem;
         }
     </style>
 </head>
@@ -84,8 +83,8 @@
             </div>
         </div>
 
-        <div id="charts-container" class="row">
-            <!-- Charts will be dynamically inserted here -->
+        <div id="data-container" class="row">
+            <!-- Data tables will be dynamically inserted here -->
         </div>
     </div>
 
@@ -94,24 +93,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const categories = ['calls', 'sms', 'applications', 'contacts', 'keylogs', 'chats'];
-        const chartTypes = {
-            'calls': 'pie',
-            'sms': 'pie',
-            'applications': 'bar',
-            'contacts': 'pie',
-            'keylogs': 'bar',
-            'chats': 'bar'
+        const categoryTitles = {
+            'calls': 'Calls',
+            'sms': 'SMS',
+            'applications': 'Applications',
+            'contacts': 'Contacts',
+            'keylogs': 'Keylogs',
+            'chats': 'Chats'
         };
-        const categoryDescriptions = {
-            'calls': 'Distribution of call types',
-            'sms': 'Distribution of SMS types',
-            'applications': 'Top 10 installed applications',
-            'contacts': 'Contacts with and without email',
-            'keylogs': 'Top 10 applications with keylog entries',
-            'chats': 'Top 10 chat senders'
-        };
-
-        let charts = {};
 
         function toggleDarkMode() {
             const body = document.body;
@@ -164,30 +153,31 @@
             });
         }
 
-        function createChartCard(category) {
-            const card = document.createElement('div');
-            card.className = 'col-md-6 mb-4';
-            card.innerHTML = `
+        function createDataTable(category, data) {
+            const tableContainer = document.createElement('div');
+            tableContainer.className = 'col-md-6 mb-4';
+            tableContainer.innerHTML = `
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">${category.charAt(0).toUpperCase() + category.slice(1)}</h5>
-                        <div class="summary-stats" id="${category}Summary"></div>
-                        <div class="mb-3">
-                            <label for="${category}ChartType" class="form-label">Chart Type:</label>
-                            <select id="${category}ChartType" class="form-select chart-type-select">
-                                <option value="pie">Pie</option>
-                                <option value="bar">Bar</option>
-                                <option value="line">Line</option>
-                            </select>
-                        </div>
-                        ${['applications', 'contacts'].includes(category) ? `
-                        <div class="mb-3">
-                            <input type="text" class="form-control search-input" placeholder="Search ${category}..." data-category="${category}">
-                        </div>
-                        ` : ''}
-                        <div class="chart-container">
-                            <div id="${category}ChartPlaceholder" class="chart-placeholder">Loading...</div>
-                            <canvas id="${category}Chart"></canvas>
+                        <h5 class="card-title">${categoryTitles[category]}</h5>
+                        <input type="text" class="form-control search-input" placeholder="Search ${categoryTitles[category]}..." data-category="${category}">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Label</th>
+                                        <th>Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.labels.map((label, index) => `
+                                        <tr>
+                                            <td>${label}</td>
+                                            <td>${data.data[index]}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
                         </div>
                         <button class="btn btn-outline-secondary download-data mt-3" data-category="${category}">
                             <i class="material-icons align-middle">download</i> Download Data
@@ -195,149 +185,94 @@
                     </div>
                 </div>
             `;
-            return card;
+            return tableContainer;
         }
 
-        function createChart(category, data, chartType) {
-            const ctx = document.getElementById(`${category}Chart`).getContext('2d');
-            const placeholderElement = document.getElementById(`${category}ChartPlaceholder`);
-            placeholderElement.style.display = 'none';
+        function loadData(category, dateRange = 'all', search = '') {
+            const dataContainer = document.getElementById('data-container');
+            const existingTable = document.querySelector(`[data-category="${category}"]`);
+            const loadingSpinner = document.createElement('div');
+            loadingSpinner.className = 'loading-spinner';
             
-            if (charts[category]) {
-                charts[category].destroy();
+            if (existingTable) {
+                existingTable.querySelector('.card-body').appendChild(loadingSpinner);
+            } else {
+                const tempContainer = document.createElement('div');
+                tempContainer.className = 'col-md-6 mb-4';
+                tempContainer.innerHTML = `
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">${categoryTitles[category]}</h5>
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                `;
+                dataContainer.appendChild(tempContainer);
             }
-
-            charts[category] = new Chart(ctx, {
-                type: chartType,
-                data: {
-                    labels: data.labels,
-                    datasets: [{
-                        label: category,
-                        data: data.data,
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)'
-                        ],
-                        borderColor: 'rgba(255, 255, 255, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: `${category.charAt(0).toUpperCase() + category.slice(1)} Data`
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: function(context) {
-                                    return categoryDescriptions[category];
-                                }
-                            }
-                        },
-                        datalabels: {
-                            color: '#fff',
-                            anchor: 'end',
-                            align: 'start',
-                            offset: 6,
-                            font: {
-                                weight: 'bold'
-                            }
-                        }
-                    }
-                },
-                plugins: [ChartDataLabels]
-            });
-        }
-
-        function loadChart(category, dateRange = 'all', search = '') {
-            const placeholderElement = document.getElementById(`${category}ChartPlaceholder`);
-            placeholderElement.style.display = 'flex';
-            placeholderElement.textContent = 'Loading...';
 
             fetch(`/api/data/${category}?date_range=${dateRange}&search=${search}`)
                 .then(response => response.json())
                 .then(data => {
-                    createChart(category, data, chartTypes[category]);
-                    updateSummaryStats(category, data);
-                    placeholderElement.style.display = 'none';
+                    if (existingTable) {
+                        existingTable.replaceWith(createDataTable(category, data));
+                    } else {
+                        dataContainer.lastChild.replaceWith(createDataTable(category, data));
+                    }
                 })
                 .catch(error => {
                     console.error(`Error loading ${category} data:`, error);
-                    placeholderElement.textContent = 'Error loading data';
+                    showToast('Error', `Failed to load ${category} data`, 'danger');
                 });
         }
 
-        function updateSummaryStats(category, data) {
-            const summaryElement = document.getElementById(`${category}Summary`);
-            const total = data.data.reduce((a, b) => a + b, 0);
-            const max = Math.max(...data.data);
-            const maxLabel = data.labels[data.data.indexOf(max)];
-            
-            summaryElement.innerHTML = `
-                <p><strong>Total:</strong> ${total}</p>
-                <p><strong>Most Common:</strong> ${maxLabel} (${max})</p>
-            `;
-        }
-
         function downloadCSV(category) {
-            const chart = charts[category];
-            const csvContent = "data:text/csv;charset=utf-8," 
-                + chart.data.labels.join(",") + "\n"
-                + chart.data.datasets[0].data.join(",");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `${category}_data.csv`);
-            document.body.appendChild(link);
-            link.click();
+            fetch(`/api/data/${category}`)
+                .then(response => response.json())
+                .then(data => {
+                    const csvContent = "data:text/csv;charset=utf-8," 
+                        + "Label,Count\n"
+                        + data.labels.map((label, index) => `"${label}",${data.data[index]}`).join("\n");
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `${category}_data.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                })
+                .catch(error => {
+                    console.error(`Error downloading ${category} data:`, error);
+                    showToast('Error', `Failed to download ${category} data`, 'danger');
+                });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const chartsContainer = document.getElementById('charts-container');
             const dateRangeSelect = document.getElementById('dateRange');
 
             categories.forEach(category => {
-                const card = createChartCard(category);
-                chartsContainer.appendChild(card);
-                loadChart(category);
+                loadData(category);
             });
 
             dateRangeSelect.addEventListener('change', function() {
                 categories.forEach(category => {
-                    loadChart(category, this.value);
+                    const searchInput = document.querySelector(`input[data-category="${category}"]`);
+                    const searchTerm = searchInput ? searchInput.value : '';
+                    loadData(category, this.value, searchTerm);
                 });
             });
 
-            chartsContainer.addEventListener('change', function(event) {
-                if (event.target.classList.contains('chart-type-select')) {
-                    const category = event.target.id.replace('ChartType', '');
-                    const data = charts[category].data;
-                    createChart(category, data, event.target.value);
-                }
-            });
-
-            chartsContainer.addEventListener('input', function(event) {
-                if (event.target.classList.contains('search-input')) {
-                    const category = event.target.dataset.category;
-                    loadChart(category, dateRangeSelect.value, event.target.value);
-                }
-            });
-
-            chartsContainer.addEventListener('click', function(event) {
+            document.getElementById('data-container').addEventListener('click', function(event) {
                 if (event.target.classList.contains('download-data') || event.target.closest('.download-data')) {
                     const button = event.target.classList.contains('download-data') ? event.target : event.target.closest('.download-data');
                     const category = button.dataset.category;
                     downloadCSV(category);
+                }
+            });
+
+            document.getElementById('data-container').addEventListener('input', function(event) {
+                if (event.target.classList.contains('search-input')) {
+                    const category = event.target.dataset.category;
+                    const searchTerm = event.target.value;
+                    loadData(category, dateRangeSelect.value, searchTerm);
                 }
             });
         });

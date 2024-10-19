@@ -308,6 +308,7 @@ def get_data_for_visualization(category, start_date=None, search=''):
         FROM calls
         {date_filter}
         GROUP BY call_type
+        ORDER BY count DESC
         """
     elif category == 'sms':
         query = f"""
@@ -315,6 +316,7 @@ def get_data_for_visualization(category, start_date=None, search=''):
         FROM sms
         {date_filter}
         GROUP BY message_type
+        ORDER BY count DESC
         """
     elif category == 'applications':
         query = f"""
@@ -336,6 +338,7 @@ def get_data_for_visualization(category, start_date=None, search=''):
         FROM contacts
         {search_filter}
         GROUP BY email_status
+        ORDER BY count DESC
         """
     elif category == 'keylogs':
         query = f"""
