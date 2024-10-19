@@ -1,3 +1,4 @@
+
 import pandas as pd
 import chardet
 from datetime import datetime
@@ -138,81 +139,3 @@ def process_and_insert_data(file_path):
     except Exception as e:
         print(f"Error processing file {file_path}: {e}")
         raise
-
-def create_tables():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    tables = [
-        """
-        CREATE TABLE IF NOT EXISTS calls (
-            call_id SERIAL PRIMARY KEY,
-            contact_id VARCHAR(50),
-            call_type VARCHAR(50),
-            call_time TIMESTAMP,
-            duration INTEGER,
-            location TEXT
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS contacts (
-            contact_id SERIAL PRIMARY KEY,
-            contact_name VARCHAR(255),
-            phone_number VARCHAR(50),
-            email VARCHAR(255)
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS sms (
-            sms_id SERIAL PRIMARY KEY,
-            sender_id VARCHAR(50),
-            receiver_id VARCHAR(50),
-            message_type VARCHAR(50),
-            message_time TIMESTAMP,
-            message_text TEXT,
-            location TEXT
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS applications (
-            application_id SERIAL PRIMARY KEY,
-            application_name VARCHAR(255),
-            package_name VARCHAR(255),
-            installed_date TIMESTAMP
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS keylogs (
-            keylog_id SERIAL PRIMARY KEY,
-            application_id VARCHAR(50),
-            log_time TIMESTAMP,
-            keylog_text TEXT
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS chats (
-            chat_id SERIAL PRIMARY KEY,
-            time TIMESTAMP,
-            sender VARCHAR(50),
-            text TEXT
-        )
-        """
-    ]
-    
-    for table in tables:
-        cur.execute(table)
-    
-    conn.commit()
-    cur.close()
-    conn.close()
-
-def test_db_connection():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT 1')
-        cur.close()
-        conn.close()
-        return "Success"
-    except Exception as e:
-        return f"Failed: {str(e)}"
