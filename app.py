@@ -2,7 +2,6 @@ import os
 from flask import Flask, render_template, request, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 from utils import process_and_insert_data, create_tables, test_db_connection
-import psycopg2
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -28,8 +27,8 @@ def upload_file():
             flash('No selected file')
             return redirect(request.url)
         if file and allowed_file(file.filename):
-            secure_name = secure_filename(filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
             
             try:
