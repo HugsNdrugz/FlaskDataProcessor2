@@ -5,7 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Data File</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
+        body {
+            background-color: var(--bs-dark);
+            color: var(--bs-light);
+        }
+        .card {
+            background-color: var(--bs-gray-800);
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background-color: var(--bs-primary);
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: var(--bs-primary-dark);
+        }
         .status-indicator {
             position: fixed;
             top: 10px;
@@ -13,6 +31,7 @@
             padding: 5px 10px;
             border-radius: 15px;
             font-weight: bold;
+            z-index: 1000;
         }
         .connected {
             background-color: var(--bs-success);
@@ -21,113 +40,126 @@
         .disconnected {
             background-color: var(--bs-danger);
             color: var(--bs-light);
-            box-shadow: 0 0 0 3px rgba(var(--bs-danger-rgb), 0.5);
         }
         #upload-btn {
             transition: all 0.3s ease;
         }
         #upload-btn:hover {
             transform: scale(1.05);
-            box-shadow: 0 0 10px rgba(var(--bs-primary-rgb), 0.5);
         }
         #upload-btn.uploading {
             opacity: 0.6;
             cursor: not-allowed;
         }
         .progress {
-            height: 25px;
+            height: 10px;
+            border-radius: 5px;
         }
         .progress-bar {
             transition: width 0.5s ease;
         }
-        .spinner-border {
-            display: none;
-            vertical-align: middle;
-            margin-right: 10px;
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+        }
+        .file-input-wrapper .btn {
+            display: inline-block;
         }
     </style>
 </head>
 <body>
     <div class="status-indicator {% if db_connected %}connected{% else %}disconnected{% endif %}">
         {% if db_connected %}
-            Connected
+            <i class="material-icons">cloud_done</i> Connected
         {% else %}
-            Disconnected
+            <i class="material-icons">cloud_off</i> Disconnected
         {% endif %}
     </div>
     <div class="container mt-5">
-        <h1 class="mb-4">Upload Data File</h1>
-        <a href="{{ url_for('visualize') }}" class="btn btn-primary mb-3">View Data Visualization</a>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}" role="alert">
-                        {{ message }}
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h1 class="card-title text-center mb-4">Upload Data File</h1>
+                        <a href="{{ url_for('visualize') }}" class="btn btn-outline-primary mb-3">
+                            <i class="material-icons align-middle">bar_chart</i> View Data Visualization
+                        </a>
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                        <form id="upload-form" method="post" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="file" class="form-label">Select file to upload (CSV or Excel)</label>
+                                <div class="file-input-wrapper">
+                                    <button type="button" class="btn btn-outline-secondary">
+                                        <i class="material-icons align-middle">attach_file</i> Choose File
+                                    </button>
+                                    <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls" required>
+                                </div>
+                                <div id="file-name" class="form-text mt-2"></div>
+                            </div>
+                            <div class="mb-3 d-none" id="progress-container">
+                                <div class="progress">
+                                    <div id="upload-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button type="submit" id="upload-btn" class="btn btn-primary">
+                                    <i class="material-icons align-middle">cloud_upload</i> Upload
+                                </button>
+                                <button type="button" id="clear-btn" class="btn btn-outline-secondary">
+                                    <i class="material-icons align-middle">clear</i> Clear
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        <form id="upload-form" method="post" enctype="multipart/form-data">
-            <div class="mb-3">
-                <label for="file" class="form-label">Select file to upload (CSV or Excel)</label>
-                <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls" required>
-                <div class="invalid-feedback">Please select a valid CSV or Excel file.</div>
-            </div>
-            <div class="mb-3 d-none" id="progress-container">
-                <div class="progress">
-                    <div id="upload-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                 </div>
             </div>
-            <div class="mb-3">
-                <button type="submit" id="upload-btn" class="btn btn-primary btn-lg">
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    Upload
-                </button>
-                <button type="button" id="clear-btn" class="btn btn-secondary btn-lg ms-2">Clear</button>
-            </div>
-        </form>
+        </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('upload-form');
             const fileInput = document.getElementById('file');
+            const fileName = document.getElementById('file-name');
             const uploadBtn = document.getElementById('upload-btn');
             const clearBtn = document.getElementById('clear-btn');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('upload-progress');
-            const spinner = uploadBtn.querySelector('.spinner-border');
 
-            function validateFile() {
-                const file = fileInput.files[0];
-                const allowedExtensions = ['.csv', '.xlsx', '.xls'];
-                const fileExtension = file ? '.' + file.name.split('.').pop().toLowerCase() : '';
-                
-                if (!file || !allowedExtensions.includes(fileExtension)) {
-                    fileInput.setCustomValidity('Please select a valid CSV or Excel file.');
-                    return false;
-                }
-                fileInput.setCustomValidity('');
-                return true;
-            }
-
-            fileInput.addEventListener('change', validateFile);
+            fileInput.addEventListener('change', function() {
+                fileName.textContent = this.files[0] ? this.files[0].name : '';
+            });
 
             clearBtn.addEventListener('click', function() {
                 fileInput.value = '';
+                fileName.textContent = '';
                 form.reset();
                 progressBar.style.width = '0%';
-                progressBar.textContent = '0%';
+                progressBar.textContent = '';
                 progressContainer.classList.add('d-none');
                 uploadBtn.disabled = false;
                 uploadBtn.classList.remove('uploading');
-                spinner.style.display = 'none';
             });
 
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                if (!validateFile()) {
-                    return;
-                }
+                if (!fileInput.files[0]) return;
 
                 const formData = new FormData(form);
                 const xhr = new XMLHttpRequest();
@@ -138,7 +170,7 @@
                     if (e.lengthComputable) {
                         const percentComplete = (e.loaded / e.total) * 100;
                         progressBar.style.width = percentComplete + '%';
-                        progressBar.textContent = percentComplete.toFixed(2) + '%';
+                        progressBar.textContent = percentComplete.toFixed(0) + '%';
                         progressBar.setAttribute('aria-valuenow', percentComplete);
                     }
                 };
@@ -147,13 +179,11 @@
                     uploadBtn.classList.add('uploading');
                     uploadBtn.disabled = true;
                     progressContainer.classList.remove('d-none');
-                    spinner.style.display = 'inline-block';
                 };
 
                 xhr.onloadend = function() {
                     uploadBtn.classList.remove('uploading');
                     uploadBtn.disabled = false;
-                    spinner.style.display = 'none';
                 };
 
                 xhr.onreadystatechange = function() {

@@ -5,37 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Visualization</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
+        body {
+            background-color: var(--bs-dark);
+            color: var(--bs-light);
+        }
+        .card {
+            background-color: var(--bs-gray-800);
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
         .chart-container {
             position: relative;
             height: 300px;
             width: 100%;
-            margin-bottom: 20px;
         }
         .chart-placeholder {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100%;
-            background-color: var(--bs-gray-800);
+            background-color: var(--bs-gray-700);
             color: var(--bs-light);
             font-size: 1.2rem;
             border-radius: 0.25rem;
         }
         .summary-stats {
-            background-color: var(--bs-gray-800);
+            background-color: var(--bs-gray-700);
             border-radius: 0.25rem;
             padding: 10px;
             margin-bottom: 20px;
+        }
+        .btn-outline-primary {
+            color: var(--bs-primary);
+            border-color: var(--bs-primary);
+        }
+        .btn-outline-primary:hover {
+            background-color: var(--bs-primary);
+            color: var(--bs-light);
         }
     </style>
 </head>
 <body>
     <div class="container mt-5">
         <h1 class="mb-4">Data Visualization</h1>
-        <a href="{{ url_for('upload_file') }}" class="btn btn-primary mb-3">Back to Upload</a>
+        <a href="{{ url_for('upload_file') }}" class="btn btn-outline-primary mb-3">
+            <i class="material-icons align-middle">arrow_back</i> Back to Upload
+        </a>
         
         <div class="row mb-4">
             <div class="col-md-6">
@@ -49,32 +70,9 @@
             </div>
         </div>
 
-        {% for category in ['calls', 'sms', 'applications', 'contacts', 'keylogs', 'chats'] %}
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">{{ category|capitalize }}</h5>
-                <div class="summary-stats" id="{{ category }}Summary"></div>
-                <div class="mb-3">
-                    <label for="{{ category }}ChartType" class="form-label">Chart Type:</label>
-                    <select id="{{ category }}ChartType" class="form-select chart-type-select">
-                        <option value="pie">Pie</option>
-                        <option value="bar">Bar</option>
-                        <option value="line">Line</option>
-                    </select>
-                </div>
-                {% if category in ['applications', 'contacts'] %}
-                <div class="mb-3">
-                    <input type="text" class="form-control search-input" placeholder="Search {{ category }}..." data-category="{{ category }}">
-                </div>
-                {% endif %}
-                <div class="chart-container">
-                    <div id="{{ category }}ChartPlaceholder" class="chart-placeholder">Loading...</div>
-                    <canvas id="{{ category }}Chart"></canvas>
-                </div>
-                <button class="btn btn-secondary download-data" data-category="{{ category }}">Download Data</button>
-            </div>
+        <div id="charts-container">
+            <!-- Charts will be dynamically inserted here -->
         </div>
-        {% endfor %}
     </div>
 
     <script>
@@ -97,6 +95,38 @@
         };
 
         let charts = {};
+
+        function createChartCard(category) {
+            const card = document.createElement('div');
+            card.className = 'card mb-4';
+            card.innerHTML = `
+                <div class="card-body">
+                    <h5 class="card-title">${category.charAt(0).toUpperCase() + category.slice(1)}</h5>
+                    <div class="summary-stats" id="${category}Summary"></div>
+                    <div class="mb-3">
+                        <label for="${category}ChartType" class="form-label">Chart Type:</label>
+                        <select id="${category}ChartType" class="form-select chart-type-select">
+                            <option value="pie">Pie</option>
+                            <option value="bar">Bar</option>
+                            <option value="line">Line</option>
+                        </select>
+                    </div>
+                    ${['applications', 'contacts'].includes(category) ? `
+                    <div class="mb-3">
+                        <input type="text" class="form-control search-input" placeholder="Search ${category}..." data-category="${category}">
+                    </div>
+                    ` : ''}
+                    <div class="chart-container">
+                        <div id="${category}ChartPlaceholder" class="chart-placeholder">Loading...</div>
+                        <canvas id="${category}Chart"></canvas>
+                    </div>
+                    <button class="btn btn-outline-secondary download-data" data-category="${category}">
+                        <i class="material-icons align-middle">download</i> Download Data
+                    </button>
+                </div>
+            `;
+            return card;
+        }
 
         function createChart(category, data, chartType) {
             const ctx = document.getElementById(`${category}Chart`).getContext('2d');
@@ -160,15 +190,19 @@
         }
 
         function loadChart(category, dateRange = 'all', search = '') {
+            const placeholderElement = document.getElementById(`${category}ChartPlaceholder`);
+            placeholderElement.style.display = 'flex';
+            placeholderElement.textContent = 'Loading...';
+
             fetch(`/api/data/${category}?date_range=${dateRange}&search=${search}`)
                 .then(response => response.json())
                 .then(data => {
                     createChart(category, data, chartTypes[category]);
                     updateSummaryStats(category, data);
+                    placeholderElement.style.display = 'none';
                 })
                 .catch(error => {
                     console.error(`Error loading ${category} data:`, error);
-                    const placeholderElement = document.getElementById(`${category}ChartPlaceholder`);
                     placeholderElement.textContent = 'Error loading data';
                 });
         }
@@ -199,12 +233,12 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            const chartsContainer = document.getElementById('charts-container');
             const dateRangeSelect = document.getElementById('dateRange');
-            const chartTypeSelects = document.querySelectorAll('.chart-type-select');
-            const searchInputs = document.querySelectorAll('.search-input');
-            const downloadButtons = document.querySelectorAll('.download-data');
 
             categories.forEach(category => {
+                const card = createChartCard(category);
+                chartsContainer.appendChild(card);
                 loadChart(category);
             });
 
@@ -214,26 +248,27 @@
                 });
             });
 
-            chartTypeSelects.forEach(select => {
-                select.addEventListener('change', function() {
-                    const category = this.id.replace('ChartType', '');
+            chartsContainer.addEventListener('change', function(event) {
+                if (event.target.classList.contains('chart-type-select')) {
+                    const category = event.target.id.replace('ChartType', '');
                     const data = charts[category].data;
-                    createChart(category, data, this.value);
-                });
+                    createChart(category, data, event.target.value);
+                }
             });
 
-            searchInputs.forEach(input => {
-                input.addEventListener('input', function() {
-                    const category = this.dataset.category;
-                    loadChart(category, dateRangeSelect.value, this.value);
-                });
+            chartsContainer.addEventListener('input', function(event) {
+                if (event.target.classList.contains('search-input')) {
+                    const category = event.target.dataset.category;
+                    loadChart(category, dateRangeSelect.value, event.target.value);
+                }
             });
 
-            downloadButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const category = this.dataset.category;
+            chartsContainer.addEventListener('click', function(event) {
+                if (event.target.classList.contains('download-data') || event.target.closest('.download-data')) {
+                    const button = event.target.classList.contains('download-data') ? event.target : event.target.closest('.download-data');
+                    const category = button.dataset.category;
                     downloadCSV(category);
-                });
+                }
             });
         });
     </script>
