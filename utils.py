@@ -30,12 +30,15 @@ def detect_file_type(df):
         return 'applications'
     elif 'application' in columns and 'text' in columns:
         return 'keylogs'
-    elif 'messenger' in columns:
+    elif 'time' in columns and 'sender' in columns and 'text' in columns:
         return 'chats'
     return None
 
 def process_data(data):
     columns = set(data.columns.str.lower())
+
+    # Remove the first column
+    data = data.iloc[:, 1:]
 
     if 'sms type' in columns:
         print("Processing as SMS...")
@@ -66,7 +69,7 @@ def process_data(data):
         data['Time'] = data['Time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
         data = data[data['Text'].str.len() >= 3]
 
-    elif 'messenger' in columns:
+    elif 'time' in columns and 'sender' in columns and 'text' in columns:
         print("Processing as Chats...")
         data['Time'] = data['Time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
         data['Sender'] = data['Sender'].apply(lambda x: "GroupName" if "Group Chat" in x else x)
@@ -140,7 +143,6 @@ def create_tables():
         """
         CREATE TABLE IF NOT EXISTS chats (
             chat_id SERIAL PRIMARY KEY,
-            messenger VARCHAR(50),
             time TIMESTAMP,
             sender VARCHAR(50),
             text TEXT
