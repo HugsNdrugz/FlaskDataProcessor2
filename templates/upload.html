@@ -8,10 +8,10 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         body {
-            transition: background-color 0.3s, color 0.3s;
+            transition: background-color 0.5s ease, color 0.5s ease;
         }
         .card {
-            transition: background-color 0.3s, box-shadow 0.3s;
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
         }
         .btn {
             transition: all 0.3s ease;
@@ -40,6 +40,10 @@
             top: 20px;
             right: 20px;
             z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+        #dark-mode-toggle:hover {
+            transform: rotate(180deg);
         }
         .loading-overlay {
             position: fixed;
@@ -52,6 +56,13 @@
             justify-content: center;
             align-items: center;
             z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .loading-overlay.show {
+            opacity: 1;
+            pointer-events: all;
         }
         .spinner {
             width: 50px;
@@ -64,6 +75,21 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toast {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
@@ -104,9 +130,10 @@
             </div>
         </div>
     </div>
-    <div class="loading-overlay d-none" id="loading-overlay">
+    <div class="loading-overlay" id="loading-overlay">
         <div class="spinner"></div>
     </div>
+    <div class="toast-container"></div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function toggleDarkMode() {
@@ -125,10 +152,38 @@
             .then(data => {
                 if (data.success) {
                     console.log('Dark mode preference saved');
+                    showToast('Theme changed', `Switched to ${newTheme} mode`);
                 }
             })
             .catch((error) => {
                 console.error('Error:', error);
+                showToast('Error', 'Failed to save theme preference', 'danger');
+            });
+        }
+
+        function showToast(title, message, type = 'success') {
+            const toastContainer = document.querySelector('.toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                toastContainer.removeChild(toast);
             });
         }
 
@@ -205,23 +260,25 @@
                 xhr.onloadstart = function() {
                     uploadBtn.disabled = true;
                     progressContainer.classList.remove('d-none');
-                    loadingOverlay.classList.remove('d-none');
+                    loadingOverlay.classList.add('show');
                 };
 
                 xhr.onloadend = function() {
                     uploadBtn.disabled = false;
-                    loadingOverlay.classList.add('d-none');
+                    loadingOverlay.classList.remove('show');
                 };
 
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState === 4) {
                         if (xhr.status === 200) {
                             const response = JSON.parse(xhr.responseText);
-                            alert(response.success);
-                            window.location.reload();
+                            showToast('Success', response.success);
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
                         } else {
                             const response = JSON.parse(xhr.responseText);
-                            alert(response.error);
+                            showToast('Error', response.error, 'danger');
                         }
                     }
                 };
