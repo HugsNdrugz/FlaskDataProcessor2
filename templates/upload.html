@@ -15,13 +15,17 @@
             font-weight: bold;
         }
         .connected {
-            background-color: #4CAF50;
-            color: white;
+            background-color: var(--bs-success);
+            color: var(--bs-light);
         }
         .disconnected {
-            background-color: #F44336;
-            color: white;
-            box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.5);
+            background-color: var(--bs-danger);
+            color: var(--bs-light);
+            box-shadow: 0 0 0 3px rgba(var(--bs-danger-rgb), 0.5);
+        }
+        #upload-btn.uploading {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -44,13 +48,72 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        <form method="post" enctype="multipart/form-data">
+        <form id="upload-form" method="post" enctype="multipart/form-data">
             <div class="mb-3">
                 <label for="file" class="form-label">Select file to upload (CSV or Excel)</label>
                 <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls">
             </div>
-            <button type="submit" class="btn btn-primary">Upload</button>
+            <div class="mb-3 d-none" id="progress-container">
+                <div class="progress">
+                    <div id="upload-progress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+            </div>
+            <button type="submit" id="upload-btn" class="btn btn-primary">Upload</button>
         </form>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('upload-form');
+            const fileInput = document.getElementById('file');
+            const uploadBtn = document.getElementById('upload-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('upload-progress');
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (fileInput.files.length === 0) {
+                    alert('Please select a file to upload.');
+                    return;
+                }
+
+                const formData = new FormData(form);
+                const xhr = new XMLHttpRequest();
+
+                xhr.open('POST', '/', true);
+
+                xhr.upload.onprogress = function(e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        progressBar.style.width = percentComplete + '%';
+                        progressBar.textContent = percentComplete.toFixed(2) + '%';
+                        progressBar.setAttribute('aria-valuenow', percentComplete);
+                    }
+                };
+
+                xhr.onloadstart = function() {
+                    uploadBtn.classList.add('uploading');
+                    uploadBtn.disabled = true;
+                    progressContainer.classList.remove('d-none');
+                };
+
+                xhr.onloadend = function() {
+                    uploadBtn.classList.remove('uploading');
+                    uploadBtn.disabled = false;
+                };
+
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            window.location.reload();
+                        } else {
+                            alert('An error occurred during the upload. Please try again.');
+                        }
+                    }
+                };
+
+                xhr.send(formData);
+            });
+        });
+    </script>
 </body>
 </html>
