@@ -46,9 +46,18 @@ def process_data(data):
 
     elif 'call type' in columns:
         print("Processing as Calls...")
-        data['Time'] = data['Time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
-        data['Duration (Sec)'] = pd.to_numeric(data['Duration (Sec)'].str.replace(' Sec', ''), errors='coerce').fillna(0).astype(int)
-        data['From/To'].fillna("Private", inplace=True)
+        data = data.copy()  # Create a copy to avoid SettingWithCopyWarning
+        data.rename(columns={
+            'Call type': 'call_type',
+            'Time': 'call_time',
+            'From/To': 'contact_id',
+            'Duration (Sec)': 'duration',
+            'Location': 'location'
+        }, inplace=True)
+        data['call_time'] = data['call_time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
+        data['duration'] = pd.to_numeric(data['duration'].str.replace(' Sec', '').str.replace('Min &amp; ', ''), errors='coerce').fillna(0).astype(int)
+        data['contact_id'].fillna("Private", inplace=True)
+        data = data[['call_type', 'call_time', 'contact_id', 'duration', 'location']]
 
     elif 'name' in columns:
         print("Processing as Contacts...")
