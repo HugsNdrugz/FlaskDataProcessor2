@@ -22,12 +22,10 @@ def upload_file():
     db_connected = test_db_connection()
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash('No file part in the request', 'danger')
-            return redirect(request.url)
+            return jsonify({'error': 'No file part in the request'}), 400
         file = request.files['file']
         if file.filename == '':
-            flash('No file selected for uploading', 'warning')
-            return redirect(request.url)
+            return jsonify({'error': 'No file selected for uploading'}), 400
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -35,14 +33,11 @@ def upload_file():
             
             try:
                 process_and_insert_data(file_path)
-                flash('File successfully uploaded and processed', 'success')
+                return jsonify({'success': 'File successfully uploaded and processed'}), 200
             except Exception as e:
-                flash(f'Error processing file: {str(e)}', 'danger')
-            
-            return redirect(url_for('upload_file'))
+                return jsonify({'error': f'Error processing file: {str(e)}'}), 500
         else:
-            flash('Allowed file types are csv, xlsx, xls', 'warning')
-            return redirect(request.url)
+            return jsonify({'error': 'Allowed file types are csv, xlsx, xls'}), 400
     return render_template('upload.html', db_connected=db_connected)
 
 @app.route('/visualize')
@@ -69,6 +64,12 @@ def get_data(category):
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/toggle_dark_mode', methods=['POST'])
+def toggle_dark_mode():
+    # In a real application, you would store this preference in a database or session
+    # For this example, we'll just return a success message
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     create_tables()
