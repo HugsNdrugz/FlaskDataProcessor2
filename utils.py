@@ -37,9 +37,6 @@ def detect_file_type(df):
 def process_data(data):
     columns = set(data.columns.str.lower())
 
-    # Remove the first column
-    data = data.iloc[:, 1:]
-
     if 'sms type' in columns:
         print("Processing as SMS...")
         data['Time'] = data['Time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
@@ -62,7 +59,9 @@ def process_data(data):
     elif 'application name' in columns:
         print("Processing as Applications...")
         data['Installed Date'] = data['Installed Date'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
-        data.drop_duplicates(subset=['Package Name'], inplace=True)
+        data = data[['Application Name', 'Package Name', 'Installed Date']]
+        data.rename(columns={'Application Name': 'application_name', 'Package Name': 'package_name', 'Installed Date': 'installed_date'}, inplace=True)
+        data.drop_duplicates(subset=['package_name'], inplace=True)
 
     elif 'application' in columns and 'text' in columns:
         print("Processing as Keylogs...")
