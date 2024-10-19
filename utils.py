@@ -71,8 +71,10 @@ def process_data(data):
 
     elif 'time' in columns and 'sender' in columns and 'text' in columns:
         print("Processing as Chats...")
-        data['Time'] = data['Time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
-        data['Sender'] = data['Sender'].apply(lambda x: "GroupName" if "Group Chat" in x else x)
+        data['time'] = data['Time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
+        data['sender'] = data['Sender'].apply(lambda x: "GroupName" if "Group Chat" in x else x)
+        data['text'] = data['Text']
+        data = data[['time', 'sender', 'text']]
 
     return data
 
