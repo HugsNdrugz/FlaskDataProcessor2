@@ -274,7 +274,7 @@
                             const response = JSON.parse(xhr.responseText);
                             showToast('Success', response.success);
                             setTimeout(() => {
-                                window.location.reload();
+                                window.location.href = '/visualize';
                             }, 2000);
                         } else {
                             const response = JSON.parse(xhr.responseText);

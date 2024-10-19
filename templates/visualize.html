@@ -10,15 +10,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
         body {
-            background-color: var(--bs-dark);
-            color: var(--bs-light);
+            transition: background-color 0.5s ease, color 0.5s ease;
         }
         .card {
-            background-color: var(--bs-gray-800);
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
         }
         .chart-container {
             position: relative;
@@ -30,28 +25,47 @@
             justify-content: center;
             align-items: center;
             height: 100%;
-            background-color: var(--bs-gray-700);
-            color: var(--bs-light);
             font-size: 1.2rem;
             border-radius: 0.25rem;
         }
         .summary-stats {
-            background-color: var(--bs-gray-700);
             border-radius: 0.25rem;
             padding: 10px;
             margin-bottom: 20px;
         }
-        .btn-outline-primary {
-            color: var(--bs-primary);
-            border-color: var(--bs-primary);
+        #dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            transition: transform 0.3s ease;
         }
-        .btn-outline-primary:hover {
-            background-color: var(--bs-primary);
-            color: var(--bs-light);
+        #dark-mode-toggle:hover {
+            transform: rotate(180deg);
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toast {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
-<body>
+<body data-bs-theme="dark">
+    <div id="dark-mode-toggle">
+        <button class="btn btn-outline-secondary" onclick="toggleDarkMode()">
+            <i class="material-icons">brightness_medium</i>
+        </button>
+    </div>
     <div class="container mt-5">
         <h1 class="mb-4">Data Visualization</h1>
         <a href="{{ url_for('upload_file') }}" class="btn btn-outline-primary mb-3">
@@ -70,11 +84,14 @@
             </div>
         </div>
 
-        <div id="charts-container">
+        <div id="charts-container" class="row">
             <!-- Charts will be dynamically inserted here -->
         </div>
     </div>
 
+    <div class="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const categories = ['calls', 'sms', 'applications', 'contacts', 'keylogs', 'chats'];
         const chartTypes = {
@@ -96,33 +113,86 @@
 
         let charts = {};
 
+        function toggleDarkMode() {
+            const body = document.body;
+            const newTheme = body.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            body.setAttribute('data-bs-theme', newTheme);
+            
+            fetch('/toggle_dark_mode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ theme: newTheme }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Dark mode preference saved');
+                    showToast('Theme changed', `Switched to ${newTheme} mode`);
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                showToast('Error', 'Failed to save theme preference', 'danger');
+            });
+        }
+
+        function showToast(title, message, type = 'success') {
+            const toastContainer = document.querySelector('.toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                toastContainer.removeChild(toast);
+            });
+        }
+
         function createChartCard(category) {
             const card = document.createElement('div');
-            card.className = 'card mb-4';
+            card.className = 'col-md-6 mb-4';
             card.innerHTML = `
-                <div class="card-body">
-                    <h5 class="card-title">${category.charAt(0).toUpperCase() + category.slice(1)}</h5>
-                    <div class="summary-stats" id="${category}Summary"></div>
-                    <div class="mb-3">
-                        <label for="${category}ChartType" class="form-label">Chart Type:</label>
-                        <select id="${category}ChartType" class="form-select chart-type-select">
-                            <option value="pie">Pie</option>
-                            <option value="bar">Bar</option>
-                            <option value="line">Line</option>
-                        </select>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">${category.charAt(0).toUpperCase() + category.slice(1)}</h5>
+                        <div class="summary-stats" id="${category}Summary"></div>
+                        <div class="mb-3">
+                            <label for="${category}ChartType" class="form-label">Chart Type:</label>
+                            <select id="${category}ChartType" class="form-select chart-type-select">
+                                <option value="pie">Pie</option>
+                                <option value="bar">Bar</option>
+                                <option value="line">Line</option>
+                            </select>
+                        </div>
+                        ${['applications', 'contacts'].includes(category) ? `
+                        <div class="mb-3">
+                            <input type="text" class="form-control search-input" placeholder="Search ${category}..." data-category="${category}">
+                        </div>
+                        ` : ''}
+                        <div class="chart-container">
+                            <div id="${category}ChartPlaceholder" class="chart-placeholder">Loading...</div>
+                            <canvas id="${category}Chart"></canvas>
+                        </div>
+                        <button class="btn btn-outline-secondary download-data mt-3" data-category="${category}">
+                            <i class="material-icons align-middle">download</i> Download Data
+                        </button>
                     </div>
-                    ${['applications', 'contacts'].includes(category) ? `
-                    <div class="mb-3">
-                        <input type="text" class="form-control search-input" placeholder="Search ${category}..." data-category="${category}">
-                    </div>
-                    ` : ''}
-                    <div class="chart-container">
-                        <div id="${category}ChartPlaceholder" class="chart-placeholder">Loading...</div>
-                        <canvas id="${category}Chart"></canvas>
-                    </div>
-                    <button class="btn btn-outline-secondary download-data" data-category="${category}">
-                        <i class="material-icons align-middle">download</i> Download Data
-                    </button>
                 </div>
             `;
             return card;
