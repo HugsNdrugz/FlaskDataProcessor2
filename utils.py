@@ -55,7 +55,7 @@ def process_data(data):
             'Location': 'location'
         }, inplace=True)
         data['call_time'] = data['call_time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
-        data['duration'] = pd.to_numeric(data['duration'].str.replace(' Sec', '').str.replace('Min &amp; ', ''), errors='coerce').fillna(0).astype(int)
+        data['duration'] = pd.to_numeric(data['duration'].str.replace(' Sec', '').str.replace('Min &amp; ', '').str.replace(' Min', ''), errors='coerce').fillna(0).astype(int)
         data['contact_id'] = data['contact_id'].fillna("Private")
         data = data[['call_type', 'call_time', 'contact_id', 'duration', 'location']]
 
