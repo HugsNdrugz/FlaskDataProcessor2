@@ -138,6 +138,10 @@ def process_and_insert_data(file_path):
         elif file_path.endswith(('.xlsx', '.xls')):
             print(f"Processing {os.path.basename(file_path)} as Excel.")
             df = pd.read_excel(file_path)
+            # Remove the first row of metadata
+            df = df.iloc[1:]
+            # Reset the index
+            df.reset_index(drop=True, inplace=True)
 
         else:
             print(f"Skipping unsupported file: {os.path.basename(file_path)}")
