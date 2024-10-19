@@ -19,14 +19,14 @@ def convert_to_utc_safe(time_str, format_str="%b %d, %I:%M %p"):
         return datetime(datetime.now().year, 2, 28, 23, 59).strftime("%Y-%m-%d %H:%M:%S")
 
 def detect_file_type(df):
-    columns = df.columns.str.lower()
+    columns = set(df.columns.str.lower())
     if 'call type' in columns:
         return 'calls'
     elif 'name' in columns and 'phone number' in columns:
         return 'contacts'
     elif 'sms type' in columns:
         return 'sms'
-    elif 'application name' in columns:
+    elif 'application name' in columns and 'package name' in columns and 'installed date' in columns:
         return 'applications'
     elif 'application' in columns and 'text' in columns:
         return 'keylogs'
@@ -58,9 +58,14 @@ def process_data(data):
 
     elif 'application name' in columns:
         print("Processing as Applications...")
+        data = data.copy()  # Create a copy to avoid SettingWithCopyWarning
         data['Installed Date'] = data['Installed Date'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
-        data = data[['Application Name', 'Package Name', 'Installed Date']]
-        data.rename(columns={'Application Name': 'application_name', 'Package Name': 'package_name', 'Installed Date': 'installed_date'}, inplace=True)
+        data.rename(columns={
+            'Application Name': 'application_name',
+            'Package Name': 'package_name',
+            'Installed Date': 'installed_date'
+        }, inplace=True)
+        data = data[['application_name', 'package_name', 'installed_date']]
         data.drop_duplicates(subset=['package_name'], inplace=True)
 
     elif 'application' in columns and 'text' in columns:
@@ -195,10 +200,9 @@ def process_and_insert_data(file_path):
             print(f"Skipping unsupported file: {os.path.basename(file_path)}")
             return
 
-        df_cleaned = process_data(df)
-        
-        table_name = detect_file_type(df_cleaned)
+        table_name = detect_file_type(df)
         if table_name:
+            df_cleaned = process_data(df)
             insert_data(table_name, df_cleaned)
             print(f"Successfully processed and inserted data from {file_path} into {table_name} table")
         else:
