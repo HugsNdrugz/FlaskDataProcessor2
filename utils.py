@@ -5,13 +5,11 @@ import os
 import psycopg2
 from psycopg2 import sql
 
-# Detect file encoding using chardet
 def detect_encoding(file_path):
     with open(file_path, 'rb') as f:
         result = chardet.detect(f.read())
     return result.get('encoding', 'utf-8')
 
-# Convert time to UTC safely
 def convert_to_utc_safe(time_str, format_str="%b %d, %I:%M %p"):
     try:
         dt = datetime.strptime(time_str, format_str)
@@ -20,7 +18,6 @@ def convert_to_utc_safe(time_str, format_str="%b %d, %I:%M %p"):
     except ValueError:
         return datetime(datetime.now().year, 2, 28, 23, 59).strftime("%Y-%m-%d %H:%M:%S")
 
-# Detect the type of file based on its columns
 def detect_file_type(df):
     columns = df.columns.str.lower()
     if 'call type' in columns:
@@ -37,7 +34,6 @@ def detect_file_type(df):
         return 'chats'
     return None
 
-# Apply cleaning logic based on detected columns
 def process_data(data):
     columns = set(data.columns.str.lower())
 
@@ -177,10 +173,8 @@ def insert_data(table_name, df):
     cur.close()
     conn.close()
 
-# Process and insert a single file
 def process_and_insert_data(file_path):
     try:
-        # Load data based on file type
         if file_path.endswith('.csv'):
             try:
                 encoding = detect_encoding(file_path)
@@ -198,10 +192,8 @@ def process_and_insert_data(file_path):
             print(f"Skipping unsupported file: {os.path.basename(file_path)}")
             return
 
-        # Clean and process the data
         df_cleaned = process_data(df)
         
-        # Detect file type and insert into appropriate table
         table_name = detect_file_type(df_cleaned)
         if table_name:
             insert_data(table_name, df_cleaned)
