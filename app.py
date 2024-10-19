@@ -32,8 +32,12 @@ def upload_file():
             file.save(file_path)
             
             try:
-                process_and_insert_data(file_path)
-                flash('File successfully uploaded and processed')
+                if filename == 'callex.csv':
+                    process_and_insert_data(file_path)
+                    flash('Call data successfully uploaded and processed')
+                else:
+                    process_and_insert_data(file_path)
+                    flash('File successfully uploaded and processed')
             except Exception as e:
                 flash(f'Error processing file: {str(e)}')
             
