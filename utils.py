@@ -134,15 +134,25 @@ def process_and_insert_data(file_path):
             encoding = detect_encoding(file_path)
             print(f"Processing {os.path.basename(file_path)} with detected encoding: {encoding}")
             df = pd.read_csv(file_path, encoding=encoding, on_bad_lines='skip')
-
         elif file_path.endswith(('.xlsx', '.xls')):
             print(f"Processing {os.path.basename(file_path)} as Excel.")
             df = pd.read_excel(file_path)
-            # Remove the first row of metadata
-            df = df.iloc[1:]
-            # Reset the index
-            df.reset_index(drop=True, inplace=True)
-
+            print("Columns:", df.columns.tolist())
+            print("\nFirst few rows:")
+            print(df.head().to_string())
+            
+            if not set(df.columns).issubset({'SMS type', 'Time', 'From/To', 'Text', 'Location', 
+                                             'Call type', 'Duration (Sec)',
+                                             'Name', 'Phone Number', 'Email Id', 'Last Contacted',
+                                             'Application Name', 'Package Name', 'Installed Date',
+                                             'Application', 'Messenger', 'Sender'}):
+                print("First row doesn't contain expected column names. Treating it as data.")
+                new_header = df.iloc[0]
+                df = df[1:]
+                df.columns = new_header
+                df.reset_index(drop=True, inplace=True)
+                print("Updated first few rows:")
+                print(df.head().to_string())
         else:
             print(f"Skipping unsupported file: {os.path.basename(file_path)}")
             return
@@ -150,14 +160,41 @@ def process_and_insert_data(file_path):
         table_name = detect_file_type(df)
         if table_name:
             df_cleaned = process_data(df)
+            print(f"Processed data structure for {os.path.basename(file_path)}:")
+            print(df_cleaned.head().to_string())
             insert_data(table_name, df_cleaned)
             print(f"Successfully processed and inserted data from {file_path} into {table_name} table")
         else:
-            print(f"Could not determine table for {file_path}. Data not inserted.")
+            print(f"Could not determine table for {file_path}. Attempting to infer based on column names.")
+            inferred_table = infer_table_from_columns(df.columns)
+            if inferred_table:
+                df_cleaned = process_data(df)
+                print(f"Processed data structure for {os.path.basename(file_path)}:")
+                print(df_cleaned.head().to_string())
+                insert_data(inferred_table, df_cleaned)
+                print(f"Inferred table type: {inferred_table}. Data inserted successfully.")
+            else:
+                print(f"Could not infer table type. Data not inserted.")
 
     except Exception as e:
         print(f"Error processing file {file_path}: {e}")
         raise
+
+def infer_table_from_columns(columns):
+    columns = set(str(col).lower() for col in columns)
+    if {'sms type', 'time', 'from/to', 'text'}.issubset(columns):
+        return 'sms'
+    elif {'call type', 'time', 'from/to', 'duration'}.issubset(columns):
+        return 'calls'
+    elif {'name', 'phone number'}.issubset(columns):
+        return 'contacts'
+    elif {'application name', 'package name', 'installed date'}.issubset(columns):
+        return 'applications'
+    elif {'application', 'time', 'text'}.issubset(columns):
+        return 'keylogs'
+    elif {'time', 'sender', 'text'}.issubset(columns):
+        return 'chats'
+    return None
 
 def create_tables():
     conn = get_db_connection()
