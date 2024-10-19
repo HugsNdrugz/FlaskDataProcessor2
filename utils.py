@@ -38,7 +38,7 @@ def process_data(data):
     columns = set(data.columns.str.lower())
 
     if 'sms type' in columns:
-        print("Processing as SMS...")
+        print('Processing as SMS...')
         data = data.copy()
         data.rename(columns={
             'SMS type': 'message_type',
@@ -48,9 +48,10 @@ def process_data(data):
             'Location': 'location'
         }, inplace=True)
         data['message_time'] = data['message_time'].apply(lambda x: convert_to_utc_safe(x) if pd.notna(x) else None)
-        data[['sender_id', 'receiver_id']] = data['sender_receiver'].str.split(',', expand=True)
+        data['sender_id'] = data['sender_receiver'].str.split(',').str[0]
+        data['receiver_id'] = data['sender_receiver'].str.split(',').str[-1]
         data.drop('sender_receiver', axis=1, inplace=True)
-        data.fillna("Unknown", inplace=True)
+        data.fillna('Unknown', inplace=True)
         return data[['sender_id', 'receiver_id', 'message_type', 'message_time', 'message_text', 'location']]
 
     elif 'call type' in columns:
