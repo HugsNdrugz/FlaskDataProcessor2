@@ -3,3 +3,5 @@ pandas
 chardet
 psycopg2
 Werkzeug
+email-validator
+flask-sqlalchemy

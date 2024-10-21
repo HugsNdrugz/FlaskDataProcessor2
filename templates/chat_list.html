@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Chats - Chat App{% endblock %}
+
+{% block content %}
+<h2>Conversations</h2>
+<div id="conversation-list" class="list-group">
+    <!-- Conversations will be dynamically added here -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat_list.js') }}"></script>
+{% endblock %}

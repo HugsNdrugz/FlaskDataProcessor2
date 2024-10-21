@@ -1,0 +1,33 @@
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 150px);
+}
+
+.message-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.message-input {
+    padding: 1rem;
+    background-color: var(--bs-dark);
+}
+
+.message {
+    max-width: 70%;
+    margin-bottom: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 1rem;
+}
+
+.message.sent {
+    align-self: flex-end;
+    background-color: var(--bs-primary);
+}
+
+.message.received {
+    align-self: flex-start;
+    background-color: var(--bs-secondary);
+}

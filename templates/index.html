@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Chat App{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <img src="{{ url_for('static', filename='icons/chat.svg') }}" alt="Chat" class="img-fluid mb-3" style="width: 64px;">
+                <h5 class="card-title">Chats</h5>
+                <a href="/chat" class="btn btn-primary">View Chats</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <img src="{{ url_for('static', filename='icons/users.svg') }}" alt="Users" class="img-fluid mb-3" style="width: 64px;">
+                <h5 class="card-title">Users</h5>
+                <a href="#" class="btn btn-secondary">View Users</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <img src="{{ url_for('static', filename='icons/settings.svg') }}" alt="Settings" class="img-fluid mb-3" style="width: 64px;">
+                <h5 class="card-title">Settings</h5>
+                <a href="#" class="btn btn-secondary">Open Settings</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}
