@@ -3,24 +3,37 @@
 {% block title %}Chat - Chat App{% endblock %}
 
 {% block content %}
-<div class="chat-container">
-    <div id="message-list" class="message-list">
-        <!-- Messages will be dynamically added here -->
-    </div>
-    <div class="message-input">
-        <form id="message-form">
-            <div class="input-group">
-                <input type="text" id="message-content" class="form-control" placeholder="Type a message...">
-                <button type="submit" class="btn btn-primary">Send</button>
+<div class="container-fluid h-100 p-0">
+    <div class="row h-100 g-0">
+        <!-- Sidebar with conversation list -->
+        <div class="col-md-4 col-lg-3 bg-dark border-end" style="height: calc(100vh - 56px); overflow-y: auto;">
+            <h4 class="text-light p-3">Conversations</h4>
+            <div id="conversation-list" class="list-group list-group-flush">
+                <!-- Conversations will be dynamically added here -->
             </div>
-        </form>
+        </div>
+        
+        <!-- Chat area -->
+        <div class="col-md-8 col-lg-9 d-flex flex-column h-100">
+            <div id="chat-header" class="bg-dark text-light p-3">
+                <h4 id="current-conversation">Select a conversation</h4>
+            </div>
+            <div id="message-list" class="flex-grow-1 overflow-auto p-3">
+                <!-- Messages will be dynamically added here -->
+            </div>
+            <div class="message-input p-3 bg-dark">
+                <form id="message-form">
+                    <div class="input-group">
+                        <input type="text" id="message-content" class="form-control" placeholder="Type a message..." disabled>
+                        <button type="submit" class="btn btn-primary" disabled>Send</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-    const conversationId = {{ conversation_id }};
-</script>
 <script src="{{ url_for('static', filename='js/chat_view.js') }}"></script>
 {% endblock %}
