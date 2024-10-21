@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, flash, redirect, url_for, jsonify
 from werkzeug.utils import secure_filename
-from utils import process_and_insert_data, create_tables, test_db_connection, get_data_for_visualization
+from utils import process_and_insert_data, create_tables, test_db_connection, get_data_for_visualization, get_unique_data_insights, get_chat_senders, get_chat_messages
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
@@ -44,6 +44,15 @@ def upload_file():
 def visualize():
     return render_template('visualize.html')
 
+@app.route('/unique_insights')
+def unique_insights():
+    insights = get_unique_data_insights()
+    return render_template('unique_insights.html', insights=insights)
+
+@app.route('/chat_view')
+def chat_view():
+    return render_template('chat_view.html')
+
 @app.route('/api/data/<category>')
 def get_data(category):
     try:
@@ -62,6 +71,22 @@ def get_data(category):
 
         data = get_data_for_visualization(category, start_date, search)
         return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/chat/senders')
+def get_senders():
+    try:
+        senders = get_chat_senders()
+        return jsonify(senders)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/chat/messages/<sender>')
+def get_messages(sender):
+    try:
+        messages = get_chat_messages(sender)
+        return jsonify(messages)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
