@@ -13,9 +13,15 @@ class Conversation(db.Model):
     user2_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     last_message_time = db.Column(db.DateTime, default=datetime.utcnow)
 
+    user1 = db.relationship('User', foreign_keys=[user1_id])
+    user2 = db.relationship('User', foreign_keys=[user2_id])
+
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    conversation = db.relationship('Conversation', backref=db.backref('messages', lazy=True))
+    sender = db.relationship('User')
