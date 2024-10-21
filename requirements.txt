@@ -1,0 +1,5 @@
+Flask
+pandas
+chardet
+psycopg2
+Werkzeug
