@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="chat-container">
+    {% for message in messages %}
+    <div class="message-bubble">
+        <div class="message-header">
+            <strong class="sender">{{ message.sender }}</strong>
+            <small class="time">{{ message.time.strftime('%Y-%m-%d %H:%M') }}</small>
+        </div>
+        <div class="message-text">
+            {{ message.text }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

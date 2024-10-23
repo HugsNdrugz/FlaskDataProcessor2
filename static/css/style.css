@@ -1,0 +1,52 @@
+.chat-container {
+    max-width: 100%;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.message-bubble {
+    max-width: 85%;
+    margin: 0.5rem 0;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    background: var(--bs-secondary-bg);
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.sender {
+    color: var(--bs-primary);
+}
+
+.time {
+    color: var(--bs-secondary);
+}
+
+.message-text {
+    word-wrap: break-word;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.message-footer {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+}
+
+/* Touch-friendly styles */
+.nav-link {
+    padding: 1rem;
+    font-size: 1.1rem;
+}
+
+/* Ensure buttons and interactive elements are touch-friendly */
+button, .btn, .nav-link {
+    min-height: 44px;
+    min-width: 44px;
+}
