@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
 from app import app, db
-from models import Chat, SMS
+from models import Chat
 
 def init_db():
     with app.app_context():
-        # Drop all tables in correct order
-        db.session.commit()  # Commit any pending changes
-        db.drop_all()  # This will handle dependencies correctly
+        db.drop_all()
         db.create_all()
         
         # Sample chat messages
