@@ -1,12 +1,18 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Cache DOM elements with null checks
-    const darkModeToggler = document.querySelector('.messages-page__dark-mode-toogler');
-    const chatSection = document.querySelector('.chat-section');
-    const contactsList = document.querySelector('.contacts-list');
-    const messageContainer = document.querySelector('.chat__content');
-    const backButton = document.querySelector('.back-button');
-    const contactItems = document.querySelectorAll('.contact-item');
-    const chatHeader = document.querySelector('.chat-section .messages-page__header .messages-page__title');
+    // Cache DOM elements with proper null checks
+    const elements = {
+        darkModeToggler: document.querySelector('.messages-page__dark-mode-toogler'),
+        chatSection: document.querySelector('.chat-section'),
+        contactsList: document.querySelector('.contacts-list'),
+        messageContainer: document.querySelector('.chat__content'),
+        backButton: document.querySelector('.back-button'),
+        contactItems: document.querySelectorAll('.contact-item'),
+        chatHeader: document.querySelector('.chat-section .messages-page__header .messages-page__title')
+    };
+
+    // Initialize theme from localStorage
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-bs-theme', savedTheme);
 
     // Mobile view state
     let isMobileView = window.innerWidth <= 768;
@@ -16,22 +22,22 @@ document.addEventListener('DOMContentLoaded', function() {
         isMobileView = window.innerWidth <= 768;
         if (isMobileView) {
             document.body.classList.add('mobile-view');
-            if (chatSection) chatSection.classList.add('d-none');
-            if (contactsList) contactsList.classList.remove('d-none');
+            if (elements.chatSection) elements.chatSection.classList.add('d-none');
+            if (elements.contactsList) elements.contactsList.classList.remove('d-none');
         } else {
             document.body.classList.remove('mobile-view');
-            if (chatSection) chatSection.classList.remove('d-none');
-            if (contactsList) contactsList.classList.remove('d-none');
+            if (elements.chatSection) elements.chatSection.classList.remove('d-none');
+            if (elements.contactsList) elements.contactsList.classList.remove('d-none');
         }
         adjustMessageContainer();
     }
 
     function adjustMessageContainer() {
-        if (messageContainer) {
+        if (elements.messageContainer) {
             const header = document.querySelector('.messages-page__header');
             const input = document.querySelector('.message-input-container');
             if (header && input) {
-                messageContainer.style.height = `calc(100vh - ${header.offsetHeight}px - ${input.offsetHeight}px)`;
+                elements.messageContainer.style.height = `calc(100vh - ${header.offsetHeight}px - ${input.offsetHeight}px)`;
             }
         }
     }
@@ -40,65 +46,63 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial call
 
-    // Dark mode toggle with proper error handling
-    if (darkModeToggler) {
-        darkModeToggler.addEventListener('click', function() {
+    // Dark mode toggle
+    if (elements.darkModeToggler) {
+        elements.darkModeToggler.addEventListener('click', function() {
             const theme = document.body.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
             document.body.setAttribute('data-bs-theme', theme);
             localStorage.setItem('theme', theme);
         });
-
-        // Check for saved theme preference
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.body.setAttribute('data-bs-theme', savedTheme);
     }
 
     // Contact item click handler
-    contactItems.forEach(item => {
-        if (item) {
-            item.addEventListener('click', function() {
-                const contact = this.dataset.contact;
-                const contactName = this.querySelector('.contact-name').textContent;
+    if (elements.contactItems) {
+        elements.contactItems.forEach(item => {
+            if (item) {
+                item.addEventListener('click', function() {
+                    const contact = this.dataset.contact;
+                    const contactName = this.querySelector('.contact-name')?.textContent || '';
 
-                // Update chat header with contact name
-                if (chatHeader) {
-                    chatHeader.textContent = contactName;
-                }
-
-                // Show chat view on mobile
-                if (isMobileView) {
-                    if (contactsList) contactsList.classList.add('d-none');
-                    if (chatSection) {
-                        chatSection.classList.remove('d-none');
-                        chatSection.classList.add('slide-in');
+                    // Update chat header
+                    if (elements.chatHeader) {
+                        elements.chatHeader.textContent = contactName;
                     }
-                }
 
-                // Fetch messages for selected contact
-                fetch(`/messages/${contact}`)
-                    .then(response => response.json())
-                    .then(messages => {
-                        if (messageContainer) {
-                            messageContainer.innerHTML = messages.map(msg => createMessageBubble(msg)).join('');
-                            scrollToBottom();
-                            updateMessageTimes();
+                    // Show chat view on mobile
+                    if (isMobileView) {
+                        if (elements.contactsList) elements.contactsList.classList.add('d-none');
+                        if (elements.chatSection) {
+                            elements.chatSection.classList.remove('d-none');
+                            elements.chatSection.classList.add('slide-in');
                         }
-                    })
-                    .catch(error => console.error('Error fetching messages:', error));
-            });
-        }
-    });
+                    }
+
+                    // Fetch messages
+                    fetch(`/messages/${contact}`)
+                        .then(response => response.json())
+                        .then(messages => {
+                            if (elements.messageContainer) {
+                                elements.messageContainer.innerHTML = messages.map(msg => createMessageBubble(msg)).join('');
+                                scrollToBottom();
+                                updateMessageTimes();
+                            }
+                        })
+                        .catch(error => console.error('Error fetching messages:', error));
+                });
+            }
+        });
+    }
 
     // Back button handler
-    if (backButton) {
-        backButton.addEventListener('click', function() {
-            if (chatSection) {
-                chatSection.classList.remove('slide-in');
-                chatSection.classList.add('slide-out');
+    if (elements.backButton) {
+        elements.backButton.addEventListener('click', function() {
+            if (elements.chatSection) {
+                elements.chatSection.classList.remove('slide-in');
+                elements.chatSection.classList.add('slide-out');
                 setTimeout(() => {
-                    chatSection.classList.add('d-none');
-                    chatSection.classList.remove('slide-out');
-                    if (contactsList) contactsList.classList.remove('d-none');
+                    elements.chatSection.classList.add('d-none');
+                    elements.chatSection.classList.remove('slide-out');
+                    if (elements.contactsList) elements.contactsList.classList.remove('d-none');
                 }, 300);
             }
         });
@@ -122,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Message timestamps
     function updateMessageTimes() {
         document.querySelectorAll('.message-time').forEach(timestamp => {
-            if (timestamp && timestamp.dataset.time) {
+            if (timestamp?.dataset?.time) {
                 const time = new Date(timestamp.dataset.time);
                 if (!isNaN(time)) {
                     timestamp.textContent = formatMessageTime(time);
@@ -145,8 +149,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Scroll to bottom helper
     function scrollToBottom() {
-        if (messageContainer) {
-            messageContainer.scrollTop = messageContainer.scrollHeight;
+        if (elements.messageContainer) {
+            elements.messageContainer.scrollTop = elements.messageContainer.scrollHeight;
         }
     }
 

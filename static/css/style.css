@@ -5,6 +5,7 @@
   --mobile-footer-height: 50px;
   --message-spacing: 0.5rem;
   --slide-transition: 0.3s ease-in-out;
+  --preview-text-max-width: 250px;
 }
 
 /* Base styles */
@@ -34,6 +35,11 @@ body {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--bs-border-color);
   cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.contact-item:active {
+  background-color: var(--bs-gray-200);
 }
 
 .contact-avatar {
@@ -53,6 +59,10 @@ body {
 .contact-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-right: 3rem;
 }
 
 .contact-name {
@@ -69,9 +79,13 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: var(--preview-text-max-width);
 }
 
 .contact-time {
+  position: absolute;
+  top: 0;
+  right: 0;
   font-size: 0.75rem;
   color: var(--bs-secondary);
 }
@@ -96,6 +110,11 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 1rem;
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
 }
 
 .message-bubble {
@@ -151,6 +170,21 @@ body {
   border-top: 1px solid var(--bs-border-color);
 }
 
+/* Dark mode toggle */
+.messages-page__dark-mode-toogler {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: var(--bs-primary);
+}
+
+.messages-page__dark-mode-toogler:hover {
+  background-color: var(--bs-gray-200);
+}
+
 /* Mobile optimizations */
 @media (max-width: 768px) {
   .back-button {
@@ -172,6 +206,14 @@ body {
 
   .message-bubble {
     max-width: 85%;
+  }
+  
+  .contact-info {
+    padding-right: 2.5rem;
+  }
+  
+  .contact-last-message {
+    max-width: calc(var(--preview-text-max-width) - 50px);
   }
 }
 
