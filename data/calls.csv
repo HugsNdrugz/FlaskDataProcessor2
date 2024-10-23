@@ -1,0 +1,4 @@
+call_type,time,from_to,duration,location
+incoming,2024-10-23 09:00:00,Alice,300,Home Office
+outgoing,2024-10-23 10:30:00,Bob,180,Downtown
+missed,2024-10-23 11:45:00,Charlie,0,Central Park
