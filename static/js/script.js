@@ -1,200 +1,146 @@
-class ChatApp {
+class ChatInterface {
     constructor() {
-        // Initialize empty elements object
-        this.elements = {};
-        this.isMobileView = false;
+        // Initialize properties
         this.currentContact = null;
-        this.init();
+        this.elements = {};
+        
+        // Initialize the interface
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.init());
+        } else {
+            this.init();
+        }
     }
 
     init() {
-        // Initialize DOM elements with null checks
-        this.initializeElements();
-        
-        // Set initial theme
-        this.initializeTheme();
-        
-        // Initialize mobile view state
-        this.handleResize();
-        
-        // Set up event listeners
-        this.setupEventListeners();
-        
-        // Start periodic updates
-        this.startPeriodicUpdates();
+        try {
+            this.cacheElements();
+            this.bindEvents();
+            this.initializeTheme();
+            this.startPeriodicUpdates();
+        } catch (error) {
+            console.error('Initialization error:', error);
+        }
     }
 
-    initializeElements() {
-        // Cache all DOM elements with null checks
+    cacheElements() {
+        // Cache DOM elements with error handling
         const selectors = {
-            darkModeToggler: '.messages-page__dark-mode-toogler',
-            chatSection: '.chat-section',
-            contactsList: '.contacts-list',
-            messageContainer: '.chat__content',
+            contactsView: '#contactsView',
+            chatView: '#chatView',
+            contacts: '.contact-item',
             backButton: '.back-button',
-            contactItems: '.contact-item',
-            chatHeader: '.chat-section .messages-page__title',
-            messageForm: '.message-input-container form',
-            messageInput: '.message-input-container input[name="message"]'
+            themeToggle: '.theme-toggle',
+            messageForm: '.message-form',
+            messageInput: 'input[name="message"]',
+            messagesList: '.messages-list',
+            chatContactName: '#chatView .contact-name'
         };
 
-        // Safely query elements
         for (const [key, selector] of Object.entries(selectors)) {
-            if (key === 'contactItems') {
-                this.elements[key] = document.querySelectorAll(selector);
-            } else {
-                this.elements[key] = document.querySelector(selector);
+            const element = key === 'contacts' 
+                ? document.querySelectorAll(selector)
+                : document.querySelector(selector);
+            
+            if (!element && key !== 'contacts') {
+                throw new Error(`Required element not found: ${selector}`);
             }
+            
+            this.elements[key] = element;
         }
     }
 
-    initializeTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        document.body.setAttribute('data-bs-theme', savedTheme);
-    }
-
-    setupEventListeners() {
-        // Window resize
-        window.addEventListener('resize', () => this.handleResize());
-
-        // Dark mode toggle
-        if (this.elements.darkModeToggler) {
-            this.elements.darkModeToggler.addEventListener('click', () => this.toggleDarkMode());
-        }
-
-        // Contact selection
-        if (this.elements.contactItems) {
-            this.elements.contactItems.forEach(item => {
-                if (item) {
-                    item.addEventListener('click', (e) => this.handleContactSelection(e));
-                }
+    bindEvents() {
+        // Bind event listeners with error handling
+        if (this.elements.contacts) {
+            this.elements.contacts.forEach(contact => {
+                contact.addEventListener('click', (e) => this.handleContactClick(e));
             });
         }
 
-        // Back button
         if (this.elements.backButton) {
             this.elements.backButton.addEventListener('click', () => this.handleBack());
         }
 
-        // Message form
+        if (this.elements.themeToggle) {
+            this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
+
         if (this.elements.messageForm) {
             this.elements.messageForm.addEventListener('submit', (e) => this.handleMessageSubmit(e));
         }
     }
 
-    handleResize() {
-        this.isMobileView = window.innerWidth <= 768;
-        
-        if (this.isMobileView) {
-            document.body.classList.add('mobile-view');
-            if (this.elements.chatSection) {
-                this.elements.chatSection.classList.add('d-none');
-            }
-            if (this.elements.contactsList) {
-                this.elements.contactsList.classList.remove('d-none');
-            }
-        } else {
-            document.body.classList.remove('mobile-view');
-            if (this.elements.chatSection) {
-                this.elements.chatSection.classList.remove('d-none');
-            }
-            if (this.elements.contactsList) {
-                this.elements.contactsList.classList.remove('d-none');
-            }
-        }
-        
-        this.adjustMessageContainer();
-    }
-
-    adjustMessageContainer() {
-        if (this.elements.messageContainer) {
-            const header = document.querySelector('.messages-page__header');
-            const input = document.querySelector('.message-input-container');
-            if (header && input) {
-                this.elements.messageContainer.style.height = 
-                    `calc(100vh - ${header.offsetHeight}px - ${input.offsetHeight}px)`;
-            }
-        }
-    }
-
-    toggleDarkMode() {
-        const currentTheme = document.body.getAttribute('data-bs-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        document.body.setAttribute('data-bs-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-    }
-
-    async handleContactSelection(event) {
-        const contactItem = event.currentTarget;
-        if (!contactItem) return;
-
-        const contact = contactItem.dataset.contact;
-        const contactName = contactItem.querySelector('.contact-name')?.textContent || '';
-        
-        this.currentContact = contact;
-
-        // Update chat header
-        if (this.elements.chatHeader) {
-            this.elements.chatHeader.textContent = contactName;
-        }
-
-        // Show chat view on mobile
-        if (this.isMobileView) {
-            if (this.elements.contactsList) {
-                this.elements.contactsList.classList.add('d-none');
-            }
-            if (this.elements.chatSection) {
-                this.elements.chatSection.classList.remove('d-none');
-                this.elements.chatSection.classList.add('slide-in');
-            }
-        }
-
+    async handleContactClick(event) {
         try {
-            // Fetch messages for selected contact
-            const response = await fetch(`/messages/${contact}`);
-            if (!response.ok) throw new Error('Failed to fetch messages');
+            const contactElement = event.currentTarget;
+            const contact = contactElement.dataset.contact;
+            const contactName = contactElement.querySelector('.contact-name').textContent;
+
+            this.currentContact = contact;
             
-            const messages = await response.json();
-            
-            if (this.elements.messageContainer) {
-                this.elements.messageContainer.innerHTML = `
-                    <div class="messages-list">
-                        ${messages.map(msg => this.createMessageBubble(msg)).join('')}
-                    </div>
-                `;
-                this.scrollToBottom();
-                this.updateMessageTimes();
+            // Update chat view header
+            if (this.elements.chatContactName) {
+                this.elements.chatContactName.textContent = contactName;
             }
+
+            // Show chat view
+            this.elements.contactsView.classList.remove('active');
+            this.elements.chatView.classList.add('active');
+
+            // Load messages
+            await this.loadMessages(contact);
         } catch (error) {
-            console.error('Error fetching messages:', error);
-            // Show error message to user
-            if (this.elements.messageContainer) {
-                this.elements.messageContainer.innerHTML = `
-                    <div class="alert alert-danger">
-                        Failed to load messages. Please try again.
-                    </div>
-                `;
-            }
+            console.error('Error handling contact click:', error);
+            this.showError('Failed to load messages');
         }
     }
 
     handleBack() {
-        if (this.elements.chatSection) {
-            this.elements.chatSection.classList.remove('slide-in');
-            this.elements.chatSection.classList.add('slide-out');
+        this.elements.chatView.classList.remove('active');
+        this.elements.contactsView.classList.add('active');
+        this.currentContact = null;
+    }
+
+    async loadMessages(contact) {
+        try {
+            const response = await fetch(`/messages/${contact}`);
+            if (!response.ok) throw new Error('Failed to fetch messages');
             
-            setTimeout(() => {
-                this.elements.chatSection.classList.add('d-none');
-                this.elements.chatSection.classList.remove('slide-out');
-                if (this.elements.contactsList) {
-                    this.elements.contactsList.classList.remove('d-none');
-                }
-            }, 300);
+            const messages = await response.json();
+            this.renderMessages(messages);
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            this.showError('Failed to load messages');
         }
+    }
+
+    renderMessages(messages) {
+        if (!this.elements.messagesList) return;
+
+        this.elements.messagesList.innerHTML = messages
+            .map(msg => this.createMessageElement(msg))
+            .join('');
+
+        this.scrollToBottom();
+    }
+
+    createMessageElement(message) {
+        const isOutgoing = message.sender === 'You';
+        const time = this.formatTime(new Date(message.time));
+        
+        return `
+            <div class="message-bubble message-bubble--${isOutgoing ? 'outgoing' : 'incoming'}">
+                <div class="message-content">${message.text}</div>
+                <time class="message-time" datetime="${message.time}">${time}</time>
+                ${message.location ? `<div class="message-location">📍 ${message.location}</div>` : ''}
+            </div>
+        `;
     }
 
     async handleMessageSubmit(event) {
         event.preventDefault();
+        
         if (!this.currentContact || !this.elements.messageInput) return;
 
         const messageText = this.elements.messageInput.value.trim();
@@ -203,9 +149,7 @@ class ChatApp {
         try {
             const response = await fetch('/messages/send', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contact: this.currentContact,
                     message: messageText
@@ -214,31 +158,15 @@ class ChatApp {
 
             if (!response.ok) throw new Error('Failed to send message');
 
-            // Clear input and refresh messages
             this.elements.messageInput.value = '';
-            this.refreshMessages();
+            await this.loadMessages(this.currentContact);
         } catch (error) {
             console.error('Error sending message:', error);
+            this.showError('Failed to send message');
         }
     }
 
-    createMessageBubble(message) {
-        const isOutgoing = message.sender === 'You';
-        return `
-            <div class="message-bubble ${isOutgoing ? 'message-bubble--outgoing' : 'message-bubble--incoming'}">
-                <div class="message-header">
-                    <span class="message-sender">${message.sender}</span>
-                    <span class="message-time" data-time="${message.time}">
-                        ${this.formatMessageTime(new Date(message.time))}
-                    </span>
-                </div>
-                <div class="message-text">${message.text}</div>
-                ${message.location ? `<div class="message-location">📍 ${message.location}</div>` : ''}
-            </div>
-        `;
-    }
-
-    formatMessageTime(date) {
+    formatTime(date) {
         if (!date || isNaN(date)) return '';
         
         const now = new Date();
@@ -252,60 +180,49 @@ class ChatApp {
         return date.toLocaleDateString();
     }
 
-    updateMessageTimes() {
-        document.querySelectorAll('.message-time').forEach(timestamp => {
-            if (timestamp?.dataset?.time) {
-                const time = new Date(timestamp.dataset.time);
-                if (!isNaN(time)) {
-                    timestamp.textContent = this.formatMessageTime(time);
-                }
-            }
-        });
-    }
-
     scrollToBottom() {
-        if (this.elements.messageContainer) {
-            this.elements.messageContainer.scrollTop = this.elements.messageContainer.scrollHeight;
+        if (this.elements.messagesList) {
+            this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
         }
     }
 
-    async refreshMessages() {
-        if (!this.currentContact) return;
-        
-        try {
-            const response = await fetch(`/messages/${this.currentContact}`);
-            if (!response.ok) throw new Error('Failed to refresh messages');
-            
-            const messages = await response.json();
-            
-            if (this.elements.messageContainer) {
-                this.elements.messageContainer.innerHTML = `
-                    <div class="messages-list">
-                        ${messages.map(msg => this.createMessageBubble(msg)).join('')}
-                    </div>
-                `;
-                this.scrollToBottom();
-            }
-        } catch (error) {
-            console.error('Error refreshing messages:', error);
-        }
+    showError(message) {
+        // Implement error toast or alert
+        alert(message);
+    }
+
+    toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-bs-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-bs-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    }
+
+    initializeTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
     }
 
     startPeriodicUpdates() {
         // Update message times every minute
-        this.updateMessageTimes();
-        setInterval(() => this.updateMessageTimes(), 60000);
+        setInterval(() => {
+            document.querySelectorAll('.message-time').forEach(timeElement => {
+                const datetime = timeElement.getAttribute('datetime');
+                if (datetime) {
+                    timeElement.textContent = this.formatTime(new Date(datetime));
+                }
+            });
+        }, 60000);
 
         // Refresh messages every 30 seconds if chat is open
         setInterval(() => {
-            if (this.currentContact && !this.elements.chatSection?.classList.contains('d-none')) {
-                this.refreshMessages();
+            if (this.currentContact) {
+                this.loadMessages(this.currentContact);
             }
         }, 30000);
     }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    new ChatApp();
-});
+// Initialize the chat interface
+new ChatInterface();

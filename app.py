@@ -1,22 +1,33 @@
 import os
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
+from routes import routes
+from models import db
 
-class Base(DeclarativeBase):
-    pass
+def create_app():
+    app = Flask(__name__)
+    
+    # Configure database using environment variables
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev')
+    
+    # Initialize extensions
+    db.init_app(app)
+    
+    # Register blueprints
+    app.register_blueprint(routes)
+    
+    # Ensure the instance folder exists
+    try:
+        os.makedirs(app.instance_path)
+    except OSError:
+        pass
+        
+    return app
 
-db = SQLAlchemy(model_class=Base)
-app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "a secret key"
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-}
-db.init_app(app)
+app = create_app()
 
-with app.app_context():
-    import models
-    import routes
-    db.create_all()
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(host='0.0.0.0', port=5000)

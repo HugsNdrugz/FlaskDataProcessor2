@@ -1,70 +1,116 @@
-from flask import render_template, jsonify, request
-from app import app, db
-from models import Chat, SMS
-from sqlalchemy import desc, union_all, func
+from flask import Blueprint, render_template, jsonify, request
+from sqlalchemy import text
+from models import db
+from datetime import datetime
 
-@app.route('/')
+routes = Blueprint('routes', __name__)
+
+@routes.route('/')
 def index():
-    # Get all unique contacts with their latest messages
-    chat_messages = db.session.query(
-        Chat.sender.label('contact'),
-        Chat.time.label('time'),
-        Chat.text.label('text'),
-        db.null().label('location')
-    )
+    # Fixed DISTINCT ON query with proper ORDER BY clause
+    query = text("""
+        SELECT DISTINCT ON (contact) 
+            contact,
+            time,
+            text,
+            location
+        FROM (
+            SELECT sender as contact, time, text, NULL as location
+            FROM chat
+            UNION ALL
+            SELECT from_to as contact, time, text, location
+            FROM sms
+        ) combined
+        ORDER BY contact, time DESC
+    """)
     
-    sms_messages = db.session.query(
-        SMS.from_to.label('contact'),
-        SMS.time.label('time'),
-        SMS.text.label('text'),
-        SMS.location.label('location')
-    )
-    
-    # Combine all messages and get latest for each contact
-    all_messages = chat_messages.union_all(sms_messages).subquery()
-    
-    latest_messages = db.session.query(
-        all_messages.c.contact,
-        all_messages.c.time,
-        all_messages.c.text,
-        all_messages.c.location
-    ).order_by(
-        desc(all_messages.c.time)
-    ).distinct(all_messages.c.contact).all()
-    
-    selected_contact = request.args.get('contact')
-    messages = []
-    
-    if selected_contact:
-        filtered_chat = chat_messages.filter(Chat.sender == selected_contact)
-        filtered_sms = sms_messages.filter(SMS.from_to == selected_contact)
-        messages = filtered_chat.union_all(filtered_sms).order_by(desc('time')).all()
-    
-    return render_template('index.html', 
-                         contacts=latest_messages,
-                         messages=messages,
-                         selected_contact=selected_contact)
+    try:
+        result = db.session.execute(query)
+        contacts = [
+            {
+                'sender': row.contact,
+                'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
+                'text': row.text,
+                'location': row.location
+            }
+            for row in result
+        ]
+        return render_template('index.html', contacts=contacts, messages=[])
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        return render_template('index.html', contacts=[], messages=[])
 
-@app.route('/messages/<contact>')
-def get_contact_messages(contact):
-    chat_messages = db.session.query(
-        Chat.sender.label('sender'),
-        Chat.time.label('time'),
-        Chat.text.label('text'),
-        db.null().label('location')
-    ).filter(Chat.sender == contact)
+@routes.route('/messages/<contact>')
+def get_messages(contact):
+    query = text("""
+        SELECT 
+            CASE 
+                WHEN sender = :contact THEN sender 
+                ELSE 'You'
+            END as sender,
+            time,
+            text,
+            NULL as location
+        FROM chat 
+        WHERE sender = :contact
+        UNION ALL
+        SELECT 
+            CASE 
+                WHEN from_to = :contact THEN from_to
+                ELSE 'You'
+            END as sender,
+            time,
+            text,
+            location
+        FROM sms
+        WHERE from_to = :contact
+        ORDER BY time ASC
+    """)
     
-    sms_messages = db.session.query(
-        SMS.from_to.label('sender'),
-        SMS.time.label('time'),
-        SMS.text.label('text'),
-        SMS.location.label('location')
-    ).filter(SMS.from_to == contact)
-    
-    messages = chat_messages.union_all(sms_messages).order_by(desc('time')).all()
-    return jsonify([{
-        'sender': msg.sender,
-        'text': msg.text,
-        'time': msg.time.strftime('%H:%M'),
-        'location': msg.location
-    } for msg in messages])
+    try:
+        result = db.session.execute(query, {'contact': contact})
+        messages = [
+            {
+                'sender': row.sender,
+                'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
+                'text': row.text,
+                'location': row.location
+            }
+            for row in result
+        ]
+        return jsonify(messages)
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        return jsonify([])
+
+@routes.route('/messages/send', methods=['POST'])
+def send_message():
+    try:
+        data = request.get_json()
+        contact = data.get('contact')
+        message_text = data.get('message')
+        
+        if not contact or not message_text:
+            return jsonify({'error': 'Missing contact or message'}), 400
+        
+        # Insert new message into chat table
+        new_message = text("""
+            INSERT INTO chat (sender, time, text)
+            VALUES (:sender, :time, :text)
+        """)
+        
+        db.session.execute(
+            new_message,
+            {
+                'sender': contact,
+                'time': datetime.utcnow(),
+                'text': message_text
+            }
+        )
+        db.session.commit()
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f"Error sending message: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to send message'}), 500

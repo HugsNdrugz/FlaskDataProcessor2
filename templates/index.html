@@ -5,29 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Chat Interface</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body>
     <!-- Contacts List Screen -->
-    <div class="contacts-list">
-        <header class="messages-page__header">
-            <h1 class="messages-page__title">Chats</h1>
-            <button class="messages-page__dark-mode-toogler btn" aria-label="Toggle dark mode">
-                <i class="bi bi-moon-fill"></i>
-            </button>
+    <div id="contactsView" class="screen active">
+        <header class="app-header">
+            <div class="container-fluid">
+                <div class="d-flex align-items-center">
+                    <h1 class="app-title">Chats</h1>
+                    <button class="btn btn-link ms-auto theme-toggle" aria-label="Toggle theme">
+                        <i class="bi bi-moon-fill"></i>
+                    </button>
+                </div>
+            </div>
         </header>
+        
         <div class="contacts-container">
             {% for contact in contacts %}
             <div class="contact-item" data-contact="{{ contact.sender }}">
                 <div class="contact-avatar">
-                    <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center" style="width: 100%; height: 100%;">
-                        {{ contact.sender[:1] }}
-                    </div>
+                    <div class="avatar-circle">{{ contact.sender[:1] | upper }}</div>
                 </div>
                 <div class="contact-info">
                     <div class="contact-name">{{ contact.sender }}</div>
-                    <div class="contact-last-message">{{ contact.text }}</div>
-                    <div class="contact-time" data-time="{{ contact.time }}">{{ contact.time }}</div>
+                    <div class="contact-preview">{{ contact.text }}</div>
+                    <time class="contact-time" datetime="{{ contact.time }}">{{ contact.time }}</time>
                 </div>
             </div>
             {% endfor %}
@@ -35,36 +39,38 @@
     </div>
 
     <!-- Chat View Screen -->
-    <div class="chat-section d-none">
-        <header class="messages-page__header">
-            <button class="back-button">
-                <i class="bi bi-arrow-left"></i>
-            </button>
-            <h2 class="messages-page__title">Contact Name</h2>
-        </header>
-        <div class="chat__content">
-            <div class="messages-list">
-                {% for message in messages %}
-                <div class="message-bubble {% if message.sender == 'You' %}message-bubble--outgoing{% else %}message-bubble--incoming{% endif %}">
-                    <div class="message-header">
-                        <span class="message-sender">{{ message.sender }}</span>
-                        <span class="message-time" data-time="{{ message.time }}">{{ message.time }}</span>
+    <div id="chatView" class="screen">
+        <header class="app-header">
+            <div class="container-fluid">
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-link back-button" aria-label="Back">
+                        <i class="bi bi-arrow-left"></i>
+                    </button>
+                    <div class="chat-contact-info">
+                        <h2 class="contact-name"></h2>
                     </div>
-                    <div class="message-text">{{ message.text }}</div>
-                    {% if message.location %}
-                    <div class="message-location">📍 {{ message.location }}</div>
-                    {% endif %}
                 </div>
-                {% endfor %}
             </div>
+        </header>
+
+        <div class="messages-container">
+            <div class="messages-list"></div>
         </div>
-        <div class="message-input-container">
-            <form class="d-flex gap-2">
-                <input type="text" class="form-control" name="message" placeholder="Type a message..." autocomplete="off">
-                <button type="submit" class="btn btn-primary">Send</button>
-            </form>
-        </div>
+
+        <footer class="message-input">
+            <div class="container-fluid">
+                <form class="message-form">
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Message" name="message" autocomplete="off">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </footer>
     </div>
+
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
