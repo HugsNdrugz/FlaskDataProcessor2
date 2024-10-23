@@ -1,24 +1,37 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Cache DOM elements with null checks
-    const darkModeToggler = document.querySelector(".messages-page__dark-mode-toogler");
-    const messageContainer = document.querySelector(".chat__content");
-    const messageForm = document.querySelector(".message-form");
-    
-    // Initialize touch events for mobile
-    let touchStartY = 0;
-    let touchEndY = 0;
-    
+    const darkModeToggler = document.querySelector('.messages-page__dark-mode-toogler');
+    const chatSection = document.querySelector('.chat-section');
+    const contactsList = document.querySelector('.contacts-list');
+    const messageContainer = document.querySelector('.chat__content');
+    const backButton = document.querySelector('.back-button');
+    const contactItems = document.querySelectorAll('.contact-item');
+    const chatHeader = document.querySelector('.chat-section .messages-page__header .messages-page__title');
+
+    // Mobile view state
+    let isMobileView = window.innerWidth <= 768;
+
     // Screen resize handler
     function handleResize() {
-        if (window.innerWidth <= 768) {
+        isMobileView = window.innerWidth <= 768;
+        if (isMobileView) {
             document.body.classList.add('mobile-view');
-            if (messageContainer) {
-                messageContainer.style.height = `calc(100vh - ${document.querySelector('.messages-page__header').offsetHeight}px - ${document.querySelector('.message-input-container').offsetHeight}px)`;
-            }
+            if (chatSection) chatSection.classList.add('d-none');
+            if (contactsList) contactsList.classList.remove('d-none');
         } else {
             document.body.classList.remove('mobile-view');
-            if (messageContainer) {
-                messageContainer.style.height = '';
+            if (chatSection) chatSection.classList.remove('d-none');
+            if (contactsList) contactsList.classList.remove('d-none');
+        }
+        adjustMessageContainer();
+    }
+
+    function adjustMessageContainer() {
+        if (messageContainer) {
+            const header = document.querySelector('.messages-page__header');
+            const input = document.querySelector('.message-input-container');
+            if (header && input) {
+                messageContainer.style.height = `calc(100vh - ${header.offsetHeight}px - ${input.offsetHeight}px)`;
             }
         }
     }
@@ -27,9 +40,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial call
 
-    // Dark mode toggle with localStorage and proper error handling
+    // Dark mode toggle with proper error handling
     if (darkModeToggler) {
-        darkModeToggler.addEventListener("click", () => {
+        darkModeToggler.addEventListener('click', function() {
             const theme = document.body.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
             document.body.setAttribute('data-bs-theme', theme);
             localStorage.setItem('theme', theme);
@@ -40,81 +53,108 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.setAttribute('data-bs-theme', savedTheme);
     }
 
-    // Mobile touch events with proper error handling
-    if (messageContainer) {
-        messageContainer.addEventListener('touchstart', (e) => {
-            touchStartY = e.touches[0].clientY;
-        }, { passive: true });
+    // Contact item click handler
+    contactItems.forEach(item => {
+        if (item) {
+            item.addEventListener('click', function() {
+                const contact = this.dataset.contact;
+                const contactName = this.querySelector('.contact-name').textContent;
 
-        messageContainer.addEventListener('touchmove', (e) => {
-            if (!messageContainer.scrollHeight) return;
-            
-            touchEndY = e.touches[0].clientY;
-            const deltaY = touchEndY - touchStartY;
-            
-            // Only prevent default if we're at the bounds
-            const isAtTop = messageContainer.scrollTop <= 0 && deltaY > 0;
-            const isAtBottom = messageContainer.scrollTop + messageContainer.clientHeight >= messageContainer.scrollHeight && deltaY < 0;
-            
-            if (isAtTop || isAtBottom) {
-                e.preventDefault();
+                // Update chat header with contact name
+                if (chatHeader) {
+                    chatHeader.textContent = contactName;
+                }
+
+                // Show chat view on mobile
+                if (isMobileView) {
+                    if (contactsList) contactsList.classList.add('d-none');
+                    if (chatSection) {
+                        chatSection.classList.remove('d-none');
+                        chatSection.classList.add('slide-in');
+                    }
+                }
+
+                // Fetch messages for selected contact
+                fetch(`/messages/${contact}`)
+                    .then(response => response.json())
+                    .then(messages => {
+                        if (messageContainer) {
+                            messageContainer.innerHTML = messages.map(msg => createMessageBubble(msg)).join('');
+                            scrollToBottom();
+                            updateMessageTimes();
+                        }
+                    })
+                    .catch(error => console.error('Error fetching messages:', error));
+            });
+        }
+    });
+
+    // Back button handler
+    if (backButton) {
+        backButton.addEventListener('click', function() {
+            if (chatSection) {
+                chatSection.classList.remove('slide-in');
+                chatSection.classList.add('slide-out');
+                setTimeout(() => {
+                    chatSection.classList.add('d-none');
+                    chatSection.classList.remove('slide-out');
+                    if (contactsList) contactsList.classList.remove('d-none');
+                }, 300);
             }
-            
-            messageContainer.scrollTop -= deltaY;
-            touchStartY = touchEndY;
-        }, { passive: false });
+        });
     }
 
-    // Message timestamps with proper error handling
+    // Message bubble template
+    function createMessageBubble(message) {
+        const isOutgoing = message.sender === 'You';
+        return `
+            <div class="message-bubble ${isOutgoing ? 'message-bubble--outgoing' : 'message-bubble--incoming'}">
+                <div class="message-header">
+                    <span class="message-sender">${message.sender}</span>
+                    <span class="message-time" data-time="${message.time}">${message.time}</span>
+                </div>
+                <div class="message-text">${message.text}</div>
+                ${message.location ? `<div class="message-location">📍 ${message.location}</div>` : ''}
+            </div>
+        `;
+    }
+
+    // Message timestamps
     function updateMessageTimes() {
-        const timestamps = document.querySelectorAll('.message-time');
-        timestamps.forEach(timestamp => {
+        document.querySelectorAll('.message-time').forEach(timestamp => {
             if (timestamp && timestamp.dataset.time) {
                 const time = new Date(timestamp.dataset.time);
-                timestamp.textContent = formatMessageTime(time);
+                if (!isNaN(time)) {
+                    timestamp.textContent = formatMessageTime(time);
+                }
             }
         });
     }
 
     function formatMessageTime(date) {
-        if (!date || !(date instanceof Date) || isNaN(date)) return '';
-        
         const now = new Date();
         const diff = now - date;
         const minutes = Math.floor(diff / 60000);
-        
+
         if (minutes < 1) return 'Just now';
         if (minutes < 60) return `${minutes}m ago`;
-        if (minutes < 1440) return `${Math.floor(minutes/60)}h ago`;
-        if (minutes < 10080) return date.toLocaleString('en-US', { weekday: 'short' }); // Within a week
+        if (minutes < 1440) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (minutes < 10080) return date.toLocaleDateString([], { weekday: 'short' });
         return date.toLocaleDateString();
     }
 
-    // Handle message form submission with proper error handling
-    if (messageForm) {
-        messageForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const input = this.querySelector('input[name="message"]');
-            if (input && input.value.trim()) {
-                // Here we would typically send the message to the server
-                // For now, just clear the input
-                input.value = '';
-                scrollToBottom();
-            }
-        });
-    }
-
-    // Auto-scroll to bottom on new messages
+    // Scroll to bottom helper
     function scrollToBottom() {
         if (messageContainer) {
             messageContainer.scrollTop = messageContainer.scrollHeight;
         }
     }
 
-    // Initial scroll to bottom
-    scrollToBottom();
-
-    // Update times initially and every minute
+    // Update times periodically
     updateMessageTimes();
     setInterval(updateMessageTimes, 60000);
+
+    // Initial setup
+    handleResize();
+    scrollToBottom();
 });
