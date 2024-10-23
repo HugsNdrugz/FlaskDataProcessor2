@@ -34,66 +34,50 @@ class ChatInterface {
 
     async cacheElements() {
         return new Promise((resolve) => {
-            try {
-                const selectors = {
-                    contactsView: '#contactsView',
-                    chatView: '#chatView',
-                    contacts: '.contact-item',
-                    backButton: '.back-button',
-                    themeToggle: '.theme-toggle',
-                    themeIcon: '.theme-toggle i',
-                    messageForm: '.message-form',
-                    messageInput: 'input[name="message"]',
-                    messagesList: '.messages-list',
-                    chatContactName: '#chatView .contact-name'
-                };
+            const selectors = {
+                contactsView: '#contactsView',
+                chatView: '#chatView',
+                contacts: '.contact-item',
+                backButton: '.back-button',
+                themeToggle: '.theme-toggle',
+                themeIcon: '.theme-toggle i',
+                messageForm: '.message-form',
+                messageInput: 'input[name="message"]',
+                messagesList: '.messages-list',
+                chatContactName: '#chatView .contact-name'
+            };
 
-                for (const [key, selector] of Object.entries(selectors)) {
-                    try {
-                        const element = key === 'contacts' 
-                            ? document.querySelectorAll(selector)
-                            : document.querySelector(selector);
+            for (const [key, selector] of Object.entries(selectors)) {
+                try {
+                    const element = key === 'contacts' 
+                        ? document.querySelectorAll(selector)
+                        : document.querySelector(selector);
 
-                        if (!element && key !== 'contacts') {
-                            console.warn(`Element not found: ${selector}`);
-                        }
-
-                        this.elements[key] = element;
-                    } catch (error) {
-                        console.warn(`Error caching element ${key}:`, error);
-                        this.elements[key] = null;
+                    if (!element && key !== 'contacts') {
+                        console.warn(`Element not found: ${selector}`);
                     }
+
+                    this.elements[key] = element;
+                } catch (error) {
+                    console.warn(`Error caching element ${key}:`, error);
+                    this.elements[key] = null;
                 }
-                resolve();
-            } catch (error) {
-                console.error('Error in cacheElements:', error);
-                this.elements = {};
-                resolve();
             }
+            resolve();
         });
     }
 
     bindEvents() {
         try {
-            // Bind with proper this context
-            const boundHandleContactClick = this.handleContactClick.bind(this);
-            const boundHandleBack = this.handleBack.bind(this);
-            const boundToggleTheme = this.toggleTheme.bind(this);
-            const boundHandleMessageSubmit = this.handleMessageSubmit.bind(this);
-
-            // Bind contact click events
             if (this.elements.contacts?.length > 0) {
                 this.elements.contacts.forEach(contact => {
-                    if (contact) {
-                        contact.addEventListener('click', boundHandleContactClick);
-                    }
+                    contact?.addEventListener('click', (e) => this.handleContactClick(e));
                 });
             }
 
-            // Bind other events
-            this.elements.backButton?.addEventListener('click', boundHandleBack);
-            this.elements.themeToggle?.addEventListener('click', boundToggleTheme);
-            this.elements.messageForm?.addEventListener('submit', boundHandleMessageSubmit);
+            this.elements.backButton?.addEventListener('click', () => this.handleBack());
+            this.elements.themeToggle?.addEventListener('click', () => this.toggleTheme());
+            this.elements.messageForm?.addEventListener('submit', (e) => this.handleMessageSubmit(e));
         } catch (error) {
             console.error('Error binding events:', error);
         }
@@ -111,11 +95,8 @@ class ChatInterface {
                 console.warn('Error accessing localStorage:', error);
             }
 
-            const html = document.documentElement;
-            if (html) {
-                html.setAttribute('data-bs-theme', savedTheme);
-                await this.updateThemeIcon(savedTheme);
-            }
+            document.documentElement?.setAttribute('data-bs-theme', savedTheme);
+            await this.updateThemeIcon(savedTheme);
         } catch (error) {
             console.error('Error initializing theme:', error);
         }
@@ -276,32 +257,25 @@ class ChatInterface {
     }
 
     startPeriodicUpdates() {
-        // Update message times every minute
-        const updateTimes = () => {
+        setInterval(() => {
             document.querySelectorAll('.message-time').forEach(timeElement => {
                 const datetime = timeElement.getAttribute('datetime');
                 if (datetime) {
                     timeElement.textContent = this.formatTime(new Date(datetime));
                 }
             });
-        };
+        }, 60000);
 
-        // Refresh messages every 30 seconds if chat is open
-        const refreshMessages = () => {
+        setInterval(() => {
             if (this.currentContact) {
                 this.loadMessages(this.currentContact).catch(error => {
                     console.error('Error refreshing messages:', error);
                 });
             }
-        };
-
-        // Set up intervals
-        setInterval(updateTimes, 60000);
-        setInterval(refreshMessages, 30000);
+        }, 30000);
     }
 }
 
-// Initialize the chat interface
 document.addEventListener('DOMContentLoaded', () => {
     try {
         window.chatInterface = new ChatInterface();
