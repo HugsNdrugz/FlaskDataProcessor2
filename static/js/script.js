@@ -1,123 +1,236 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // Cache DOM elements with proper null checks and initialization
-    const elements = {
-        darkModeToggler: document.querySelector('.messages-page__dark-mode-toogler'),
-        chatSection: document.querySelector('.chat-section'),
-        contactsList: document.querySelector('.contacts-list'),
-        messageContainer: document.querySelector('.chat__content'),
-        backButton: document.querySelector('.back-button'),
-        contactItems: document.querySelectorAll('.contact-item'),
-        chatHeader: document.querySelector('.chat-section .messages-page__title')
-    };
-
-    // Initialize theme from localStorage
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.body.setAttribute('data-bs-theme', savedTheme);
-
-    // Mobile view state
-    let isMobileView = window.innerWidth <= 768;
-
-    // Screen resize handler
-    function handleResize() {
-        isMobileView = window.innerWidth <= 768;
-        if (isMobileView) {
-            document.body.classList.add('mobile-view');
-            if (elements.chatSection) elements.chatSection.classList.add('d-none');
-            if (elements.contactsList) elements.contactsList.classList.remove('d-none');
-        } else {
-            document.body.classList.remove('mobile-view');
-            if (elements.chatSection) elements.chatSection.classList.remove('d-none');
-            if (elements.contactsList) elements.contactsList.classList.remove('d-none');
-        }
-        adjustMessageContainer();
+class ChatApp {
+    constructor() {
+        // Initialize empty elements object
+        this.elements = {};
+        this.isMobileView = false;
+        this.currentContact = null;
+        this.init();
     }
 
-    function adjustMessageContainer() {
-        if (elements.messageContainer) {
+    init() {
+        // Initialize DOM elements with null checks
+        this.initializeElements();
+        
+        // Set initial theme
+        this.initializeTheme();
+        
+        // Initialize mobile view state
+        this.handleResize();
+        
+        // Set up event listeners
+        this.setupEventListeners();
+        
+        // Start periodic updates
+        this.startPeriodicUpdates();
+    }
+
+    initializeElements() {
+        // Cache all DOM elements with null checks
+        const selectors = {
+            darkModeToggler: '.messages-page__dark-mode-toogler',
+            chatSection: '.chat-section',
+            contactsList: '.contacts-list',
+            messageContainer: '.chat__content',
+            backButton: '.back-button',
+            contactItems: '.contact-item',
+            chatHeader: '.chat-section .messages-page__title',
+            messageForm: '.message-input-container form',
+            messageInput: '.message-input-container input[name="message"]'
+        };
+
+        // Safely query elements
+        for (const [key, selector] of Object.entries(selectors)) {
+            if (key === 'contactItems') {
+                this.elements[key] = document.querySelectorAll(selector);
+            } else {
+                this.elements[key] = document.querySelector(selector);
+            }
+        }
+    }
+
+    initializeTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.body.setAttribute('data-bs-theme', savedTheme);
+    }
+
+    setupEventListeners() {
+        // Window resize
+        window.addEventListener('resize', () => this.handleResize());
+
+        // Dark mode toggle
+        if (this.elements.darkModeToggler) {
+            this.elements.darkModeToggler.addEventListener('click', () => this.toggleDarkMode());
+        }
+
+        // Contact selection
+        if (this.elements.contactItems) {
+            this.elements.contactItems.forEach(item => {
+                if (item) {
+                    item.addEventListener('click', (e) => this.handleContactSelection(e));
+                }
+            });
+        }
+
+        // Back button
+        if (this.elements.backButton) {
+            this.elements.backButton.addEventListener('click', () => this.handleBack());
+        }
+
+        // Message form
+        if (this.elements.messageForm) {
+            this.elements.messageForm.addEventListener('submit', (e) => this.handleMessageSubmit(e));
+        }
+    }
+
+    handleResize() {
+        this.isMobileView = window.innerWidth <= 768;
+        
+        if (this.isMobileView) {
+            document.body.classList.add('mobile-view');
+            if (this.elements.chatSection) {
+                this.elements.chatSection.classList.add('d-none');
+            }
+            if (this.elements.contactsList) {
+                this.elements.contactsList.classList.remove('d-none');
+            }
+        } else {
+            document.body.classList.remove('mobile-view');
+            if (this.elements.chatSection) {
+                this.elements.chatSection.classList.remove('d-none');
+            }
+            if (this.elements.contactsList) {
+                this.elements.contactsList.classList.remove('d-none');
+            }
+        }
+        
+        this.adjustMessageContainer();
+    }
+
+    adjustMessageContainer() {
+        if (this.elements.messageContainer) {
             const header = document.querySelector('.messages-page__header');
             const input = document.querySelector('.message-input-container');
             if (header && input) {
-                elements.messageContainer.style.height = `calc(100vh - ${header.offsetHeight}px - ${input.offsetHeight}px)`;
+                this.elements.messageContainer.style.height = 
+                    `calc(100vh - ${header.offsetHeight}px - ${input.offsetHeight}px)`;
             }
         }
     }
 
-    // Event listeners
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Initial call
-
-    // Dark mode toggle
-    if (elements.darkModeToggler) {
-        elements.darkModeToggler.addEventListener('click', function() {
-            const theme = document.body.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
-            document.body.setAttribute('data-bs-theme', theme);
-            localStorage.setItem('theme', theme);
-        });
+    toggleDarkMode() {
+        const currentTheme = document.body.getAttribute('data-bs-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-bs-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
     }
 
-    // Contact item click handler
-    if (elements.contactItems) {
-        elements.contactItems.forEach(item => {
-            if (item) {
-                item.addEventListener('click', function() {
-                    const contact = this.dataset.contact;
-                    const contactName = this.querySelector('.contact-name')?.textContent || '';
+    async handleContactSelection(event) {
+        const contactItem = event.currentTarget;
+        if (!contactItem) return;
 
-                    // Update chat header
-                    if (elements.chatHeader) {
-                        elements.chatHeader.textContent = contactName;
-                    }
+        const contact = contactItem.dataset.contact;
+        const contactName = contactItem.querySelector('.contact-name')?.textContent || '';
+        
+        this.currentContact = contact;
 
-                    // Show chat view on mobile
-                    if (isMobileView) {
-                        if (elements.contactsList) elements.contactsList.classList.add('d-none');
-                        if (elements.chatSection) {
-                            elements.chatSection.classList.remove('d-none');
-                            elements.chatSection.classList.add('slide-in');
-                        }
-                    }
+        // Update chat header
+        if (this.elements.chatHeader) {
+            this.elements.chatHeader.textContent = contactName;
+        }
 
-                    // Fetch messages for selected contact
-                    fetch(`/messages/${contact}`)
-                        .then(response => response.json())
-                        .then(messages => {
-                            if (elements.messageContainer) {
-                                elements.messageContainer.innerHTML = `<div class="messages-list">${
-                                    messages.map(msg => createMessageBubble(msg)).join('')
-                                }</div>`;
-                                scrollToBottom();
-                                updateMessageTimes();
-                            }
-                        })
-                        .catch(error => console.error('Error fetching messages:', error));
-                });
+        // Show chat view on mobile
+        if (this.isMobileView) {
+            if (this.elements.contactsList) {
+                this.elements.contactsList.classList.add('d-none');
             }
-        });
-    }
-
-    // Back button handler
-    if (elements.backButton) {
-        elements.backButton.addEventListener('click', function() {
-            if (elements.chatSection) {
-                elements.chatSection.classList.remove('slide-in');
-                elements.chatSection.classList.add('slide-out');
-                setTimeout(() => {
-                    elements.chatSection.classList.add('d-none');
-                    elements.chatSection.classList.remove('slide-out');
-                    if (elements.contactsList) elements.contactsList.classList.remove('d-none');
-                }, 300);
+            if (this.elements.chatSection) {
+                this.elements.chatSection.classList.remove('d-none');
+                this.elements.chatSection.classList.add('slide-in');
             }
-        });
+        }
+
+        try {
+            // Fetch messages for selected contact
+            const response = await fetch(`/messages/${contact}`);
+            if (!response.ok) throw new Error('Failed to fetch messages');
+            
+            const messages = await response.json();
+            
+            if (this.elements.messageContainer) {
+                this.elements.messageContainer.innerHTML = `
+                    <div class="messages-list">
+                        ${messages.map(msg => this.createMessageBubble(msg)).join('')}
+                    </div>
+                `;
+                this.scrollToBottom();
+                this.updateMessageTimes();
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+            // Show error message to user
+            if (this.elements.messageContainer) {
+                this.elements.messageContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        Failed to load messages. Please try again.
+                    </div>
+                `;
+            }
+        }
     }
 
-    // Message bubble template
-    function createMessageBubble(message) {
+    handleBack() {
+        if (this.elements.chatSection) {
+            this.elements.chatSection.classList.remove('slide-in');
+            this.elements.chatSection.classList.add('slide-out');
+            
+            setTimeout(() => {
+                this.elements.chatSection.classList.add('d-none');
+                this.elements.chatSection.classList.remove('slide-out');
+                if (this.elements.contactsList) {
+                    this.elements.contactsList.classList.remove('d-none');
+                }
+            }, 300);
+        }
+    }
+
+    async handleMessageSubmit(event) {
+        event.preventDefault();
+        if (!this.currentContact || !this.elements.messageInput) return;
+
+        const messageText = this.elements.messageInput.value.trim();
+        if (!messageText) return;
+
+        try {
+            const response = await fetch('/messages/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contact: this.currentContact,
+                    message: messageText
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to send message');
+
+            // Clear input and refresh messages
+            this.elements.messageInput.value = '';
+            this.refreshMessages();
+        } catch (error) {
+            console.error('Error sending message:', error);
+        }
+    }
+
+    createMessageBubble(message) {
         const isOutgoing = message.sender === 'You';
         return `
             <div class="message-bubble ${isOutgoing ? 'message-bubble--outgoing' : 'message-bubble--incoming'}">
                 <div class="message-header">
                     <span class="message-sender">${message.sender}</span>
-                    <span class="message-time" data-time="${message.time}">${message.time}</span>
+                    <span class="message-time" data-time="${message.time}">
+                        ${this.formatMessageTime(new Date(message.time))}
+                    </span>
                 </div>
                 <div class="message-text">${message.text}</div>
                 ${message.location ? `<div class="message-location">📍 ${message.location}</div>` : ''}
@@ -125,19 +238,9 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
 
-    // Message timestamps
-    function updateMessageTimes() {
-        document.querySelectorAll('.message-time').forEach(timestamp => {
-            if (timestamp?.dataset?.time) {
-                const time = new Date(timestamp.dataset.time);
-                if (!isNaN(time)) {
-                    timestamp.textContent = formatMessageTime(time);
-                }
-            }
-        });
-    }
-
-    function formatMessageTime(date) {
+    formatMessageTime(date) {
+        if (!date || isNaN(date)) return '';
+        
         const now = new Date();
         const diff = now - date;
         const minutes = Math.floor(diff / 60000);
@@ -149,14 +252,60 @@ document.addEventListener('DOMContentLoaded', function() {
         return date.toLocaleDateString();
     }
 
-    // Scroll to bottom helper
-    function scrollToBottom() {
-        if (elements.messageContainer) {
-            elements.messageContainer.scrollTop = elements.messageContainer.scrollHeight;
+    updateMessageTimes() {
+        document.querySelectorAll('.message-time').forEach(timestamp => {
+            if (timestamp?.dataset?.time) {
+                const time = new Date(timestamp.dataset.time);
+                if (!isNaN(time)) {
+                    timestamp.textContent = this.formatMessageTime(time);
+                }
+            }
+        });
+    }
+
+    scrollToBottom() {
+        if (this.elements.messageContainer) {
+            this.elements.messageContainer.scrollTop = this.elements.messageContainer.scrollHeight;
         }
     }
 
-    // Update times periodically
-    updateMessageTimes();
-    setInterval(updateMessageTimes, 60000);
+    async refreshMessages() {
+        if (!this.currentContact) return;
+        
+        try {
+            const response = await fetch(`/messages/${this.currentContact}`);
+            if (!response.ok) throw new Error('Failed to refresh messages');
+            
+            const messages = await response.json();
+            
+            if (this.elements.messageContainer) {
+                this.elements.messageContainer.innerHTML = `
+                    <div class="messages-list">
+                        ${messages.map(msg => this.createMessageBubble(msg)).join('')}
+                    </div>
+                `;
+                this.scrollToBottom();
+            }
+        } catch (error) {
+            console.error('Error refreshing messages:', error);
+        }
+    }
+
+    startPeriodicUpdates() {
+        // Update message times every minute
+        this.updateMessageTimes();
+        setInterval(() => this.updateMessageTimes(), 60000);
+
+        // Refresh messages every 30 seconds if chat is open
+        setInterval(() => {
+            if (this.currentContact && !this.elements.chatSection?.classList.contains('d-none')) {
+                this.refreshMessages();
+            }
+        }, 30000);
+    }
+}
+
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    new ChatApp();
 });
