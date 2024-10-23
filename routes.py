@@ -7,13 +7,7 @@ from sqlalchemy import desc
 def index():
     # Get all messages ordered by time
     messages = Chat.query.order_by(Chat.time).all()
-    
-    # For demo purposes, set current_user as 'Alice'
-    current_user = 'Alice'
-    
-    return render_template('index.html', 
-                         messages=messages,
-                         current_user=current_user)
+    return render_template('index.html', messages=messages)
 
 @app.route('/chats/<sender>')
 def get_chat(sender):

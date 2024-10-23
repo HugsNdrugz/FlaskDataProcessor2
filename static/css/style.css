@@ -1,4 +1,4 @@
-/* Using the style.css content provided in the files */
+/* Base styles from the original file */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");
 
 :root {
@@ -6,22 +6,12 @@
   --bg-page-darker: #f7f7f7;
   --bg-page-darkest: #b3b3b3;
   --colour-primary: #3996fb;
-  --colour-primary-lightest: #e8f3ff;
-  --colour-primary-darker: #1a7ee6;
-  --colour-third: #419d78;
-  --colour-third-lighter: #7bc9aa;
-  --colour-third-lightest: #e6f7f0;
   --colour-text: #696969;
   --colour-text-lighter: #9b9b9b;
   --colour-text-darker: #626262;
   --colour-text-darkest: #363636;
   --border-color: #e8e7e7;
-  --form-radius: 13px;
-  --search-form-bg-colour: #f2f2f2;
-  --send-form-bg-colour: #f2f2f2;
-  --send-btn-box-shadow-colour: #7bbafd;
-  --chat-bubble-me: #f2f2f2;
-  --chat-bubble-you: var(--colour-primary);
+  --message-bg: #f2f2f2;
 }
 
 .dark-mode {
@@ -29,21 +19,102 @@
   --bg-page-darker: #363636;
   --bg-page-darkest: #818181;
   --colour-primary: #1a71d0;
-  --colour-primary-lightest: #202c3a;
-  --colour-primary-darker: #449ffd;
-  --colour-third: #41c590;
-  --colour-third-lighter: #56d6a3;
-  --colour-third-lightest: #272f2c;
   --colour-text: #c7c7c7;
   --colour-text-lighter: #868686;
   --colour-text-darker: #dcdcdc;
   --colour-text-darkest: #eaeaea;
   --border-color: #4c4c4c;
-  --search-form-bg-colour: #363636;
-  --send-form-bg-colour: #363636;
-  --send-btn-box-shadow-colour: #44515f;
-  --chat-bubble-me: #363636;
-  --chat-bubble-you: var(--colour-primary);
+  --message-bg: #363636;
 }
 
-/* Rest of the style.css content */
+body {
+  font-family: "Inter", sans-serif;
+  color: var(--colour-text);
+  background-color: var(--bg-page);
+}
+
+.messages-page {
+  height: 100vh;
+}
+
+.messages-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.messages-page__title {
+  color: var(--colour-text-darker);
+  font-weight: bold;
+  font-size: 1.5rem;
+}
+
+.messages-page__dark-mode-toogler {
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0.35rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.messages-page__dark-mode-toogler:hover {
+  background-color: var(--colour-primary);
+  border-color: var(--colour-primary);
+}
+
+.chat__content {
+  height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.chat__list-messages {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.message-entry {
+  background-color: var(--message-bg);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.message-sender {
+  font-weight: bold;
+  color: var(--colour-text-darker);
+}
+
+.message-time {
+  color: var(--colour-text-lighter);
+  font-size: 0.9rem;
+}
+
+.message-content {
+  color: var(--colour-text-darkest);
+  line-height: 1.4;
+}
+
+.svg-icon {
+  width: 70%;
+}
+
+.svg-icon path,
+.svg-icon circle {
+  fill: var(--colour-primary);
+}
+
+.svg-icon--dark-mode {
+  width: 80%;
+}
