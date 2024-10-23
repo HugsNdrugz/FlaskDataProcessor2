@@ -5,7 +5,10 @@ from sqlalchemy import desc
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    messages = Chat.query.order_by(desc(Chat.time)).all()
+    # For demo purposes, set current_user as 'Alice'
+    current_user = 'Alice'
+    return render_template('index.html', messages=messages, current_user=current_user)
 
 @app.route('/chats')
 def chats():

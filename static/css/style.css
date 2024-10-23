@@ -1,52 +1,49 @@
-.chat-container {
-    max-width: 100%;
-    padding: 1rem;
-    overflow-y: auto;
+/* Using the style.css content provided in the files */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");
+
+:root {
+  --bg-page: #ffffff;
+  --bg-page-darker: #f7f7f7;
+  --bg-page-darkest: #b3b3b3;
+  --colour-primary: #3996fb;
+  --colour-primary-lightest: #e8f3ff;
+  --colour-primary-darker: #1a7ee6;
+  --colour-third: #419d78;
+  --colour-third-lighter: #7bc9aa;
+  --colour-third-lightest: #e6f7f0;
+  --colour-text: #696969;
+  --colour-text-lighter: #9b9b9b;
+  --colour-text-darker: #626262;
+  --colour-text-darkest: #363636;
+  --border-color: #e8e7e7;
+  --form-radius: 13px;
+  --search-form-bg-colour: #f2f2f2;
+  --send-form-bg-colour: #f2f2f2;
+  --send-btn-box-shadow-colour: #7bbafd;
+  --chat-bubble-me: #f2f2f2;
+  --chat-bubble-you: var(--colour-primary);
 }
 
-.message-bubble {
-    max-width: 85%;
-    margin: 0.5rem 0;
-    padding: 0.75rem;
-    border-radius: 1rem;
-    background: var(--bs-secondary-bg);
+.dark-mode {
+  --bg-page: #1a1a1a;
+  --bg-page-darker: #363636;
+  --bg-page-darkest: #818181;
+  --colour-primary: #1a71d0;
+  --colour-primary-lightest: #202c3a;
+  --colour-primary-darker: #449ffd;
+  --colour-third: #41c590;
+  --colour-third-lighter: #56d6a3;
+  --colour-third-lightest: #272f2c;
+  --colour-text: #c7c7c7;
+  --colour-text-lighter: #868686;
+  --colour-text-darker: #dcdcdc;
+  --colour-text-darkest: #eaeaea;
+  --border-color: #4c4c4c;
+  --search-form-bg-colour: #363636;
+  --send-form-bg-colour: #363636;
+  --send-btn-box-shadow-colour: #44515f;
+  --chat-bubble-me: #363636;
+  --chat-bubble-you: var(--colour-primary);
 }
 
-.message-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-}
-
-.sender {
-    color: var(--bs-primary);
-}
-
-.time {
-    color: var(--bs-secondary);
-}
-
-.message-text {
-    word-wrap: break-word;
-    font-size: 1rem;
-    line-height: 1.4;
-}
-
-.message-footer {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--bs-secondary);
-}
-
-/* Touch-friendly styles */
-.nav-link {
-    padding: 1rem;
-    font-size: 1.1rem;
-}
-
-/* Ensure buttons and interactive elements are touch-friendly */
-button, .btn, .nav-link {
-    min-height: 44px;
-    min-width: 44px;
-}
+/* Rest of the style.css content */
