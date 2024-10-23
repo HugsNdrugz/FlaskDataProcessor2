@@ -1,7 +1,10 @@
 import os
 from flask import Flask
 from routes import routes
-from models import db
+from models import db, test_db_connection
+import logging
+
+logger = logging.getLogger(__name__)
 
 def create_app():
     app = Flask(__name__)
@@ -22,12 +25,21 @@ def create_app():
         os.makedirs(app.instance_path)
     except OSError:
         pass
+
+    # Test database connection
+    if not test_db_connection(app):
+        logger.error("Failed to connect to the database. Please check your database configuration.")
+    else:
+        with app.app_context():
+            try:
+                db.create_all()
+                logger.info("Database tables created successfully!")
+            except Exception as e:
+                logger.error(f"Error creating database tables: {str(e)}")
         
     return app
 
 app = create_app()
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(host='0.0.0.0', port=5000)

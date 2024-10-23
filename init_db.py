@@ -1,31 +1,40 @@
+from app import create_app
+from models import db, Chat, SMS
 from datetime import datetime, timedelta
-from app import app, db
-from models import Chat, SMS
 
 def init_db():
+    app = create_app()
     with app.app_context():
+        # Drop existing tables and recreate them
         db.drop_all()
         db.create_all()
-        
-        # Sample chat messages
-        chats = [
-            Chat(sender="Alice", text="Hey, how are you?", time=datetime.utcnow() - timedelta(minutes=30)),
-            Chat(sender="Bob", text="I'm good, thanks! How about you?", time=datetime.utcnow() - timedelta(minutes=25)),
-            Chat(sender="Alice", text="Doing great! Want to meet up later?", time=datetime.utcnow() - timedelta(minutes=20)),
-            Chat(sender="Bob", text="Sure, that sounds good!", time=datetime.utcnow() - timedelta(minutes=15))
-        ]
-        
-        # Sample SMS messages
-        sms = [
-            SMS(from_to="Charlie", text="I'm at the coffee shop", time=datetime.utcnow() - timedelta(minutes=28),
-                location="Downtown Coffee"),
-            SMS(from_to="David", text="Running late, be there in 10", time=datetime.utcnow() - timedelta(minutes=22),
-                location="Central Station")
-        ]
-        
-        db.session.add_all(chats)
-        db.session.add_all(sms)
-        db.session.commit()
 
-if __name__ == "__main__":
+        # Create sample data
+        sample_chats = [
+            Chat(sender='Alice', text='Hey there!', time=datetime.utcnow() - timedelta(days=1)),
+            Chat(sender='Bob', text='How are you?', time=datetime.utcnow() - timedelta(hours=12)),
+            Chat(sender='Charlie', text='Meeting at 3?', time=datetime.utcnow() - timedelta(hours=2))
+        ]
+
+        sample_sms = [
+            SMS(from_to='Alice', text='At the coffee shop', time=datetime.utcnow() - timedelta(hours=1), 
+                location='Coffee Shop, Downtown'),
+            SMS(from_to='Bob', text='On my way', time=datetime.utcnow() - timedelta(minutes=30), 
+                location='Central Station'),
+            SMS(from_to='Charlie', text='Yes, see you there!', time=datetime.utcnow(), 
+                location='Office Building')
+        ]
+
+        # Add sample data to database
+        db.session.add_all(sample_chats)
+        db.session.add_all(sample_sms)
+        
+        try:
+            db.session.commit()
+            print("Database initialized successfully!")
+        except Exception as e:
+            print(f"Error initializing database: {e}")
+            db.session.rollback()
+
+if __name__ == '__main__':
     init_db()
