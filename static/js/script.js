@@ -6,112 +6,83 @@ class ChatInterface {
         this.elements = {};
         this.periodicUpdates = null;
 
-        // Defer initialization
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                this.asyncInit().catch(error => {
-                    console.error('Initialization error:', error);
-                });
-            });
+            document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
-            this.asyncInit().catch(error => {
-                console.error('Initialization error:', error);
-            });
+            this.init();
         }
     }
 
-    async asyncInit() {
+    async init() {
         try {
             await this.cacheElements();
             await this.initializeTheme();
             this.bindEvents();
             this.startPeriodicUpdates();
         } catch (error) {
-            console.error('Error in asyncInit:', error);
-            throw error;
+            console.error('Error in init:', error);
         }
     }
 
     async cacheElements() {
-        return new Promise((resolve) => {
-            const selectors = {
-                contactsView: '#contactsView',
-                chatView: '#chatView',
-                contacts: '.contact-item',
-                backButton: '.back-button',
-                themeToggle: '.theme-toggle',
-                themeIcon: '.theme-toggle i',
-                messageForm: '.message-form',
-                messageInput: 'input[name="message"]',
-                messagesList: '.messages-list',
-                chatContactName: '#chatView .contact-name'
-            };
+        const selectors = {
+            contactsView: '#contactsView',
+            chatView: '#chatView',
+            contacts: '.contact-item',
+            backButton: '.back-button',
+            themeToggle: '.theme-toggle',
+            themeIcon: '.theme-toggle i',
+            messageForm: '.message-form',
+            messageInput: 'input[name="message"]',
+            messagesList: '.messages-list',
+            chatContactName: '#chatView .contact-name'
+        };
 
-            for (const [key, selector] of Object.entries(selectors)) {
-                try {
-                    const element = key === 'contacts' 
-                        ? document.querySelectorAll(selector)
-                        : document.querySelector(selector);
-
-                    if (!element && key !== 'contacts') {
-                        console.warn(`Element not found: ${selector}`);
-                    }
-
-                    this.elements[key] = element;
-                } catch (error) {
-                    console.warn(`Error caching element ${key}:`, error);
-                    this.elements[key] = null;
-                }
+        for (const [key, selector] of Object.entries(selectors)) {
+            try {
+                this.elements[key] = key === 'contacts' 
+                    ? document.querySelectorAll(selector)
+                    : document.querySelector(selector);
+            } catch (error) {
+                console.warn(`Error caching element ${key}:`, error);
+                this.elements[key] = null;
             }
-            resolve();
-        });
+        }
     }
 
     bindEvents() {
-        try {
-            if (this.elements.contacts?.length > 0) {
-                this.elements.contacts.forEach(contact => {
-                    contact?.addEventListener('click', (e) => this.handleContactClick(e));
-                });
-            }
-
-            this.elements.backButton?.addEventListener('click', () => this.handleBack());
-            this.elements.themeToggle?.addEventListener('click', () => this.toggleTheme());
-            this.elements.messageForm?.addEventListener('submit', (e) => this.handleMessageSubmit(e));
-        } catch (error) {
-            console.error('Error binding events:', error);
+        if (this.elements.contacts?.length) {
+            this.elements.contacts.forEach(contact => {
+                if (contact) {
+                    contact.addEventListener('click', this.handleContactClick.bind(this));
+                }
+            });
         }
+
+        this.elements.backButton?.addEventListener('click', this.handleBack.bind(this));
+        this.elements.themeToggle?.addEventListener('click', this.toggleTheme.bind(this));
+        this.elements.messageForm?.addEventListener('submit', this.handleMessageSubmit.bind(this));
     }
 
     async initializeTheme() {
         try {
-            let savedTheme = 'dark';
-            try {
-                const stored = localStorage.getItem('theme');
-                if (stored) {
-                    savedTheme = stored;
-                }
-            } catch (error) {
-                console.warn('Error accessing localStorage:', error);
+            let savedTheme = localStorage.getItem('theme') || 'dark';
+            const html = document.documentElement;
+            if (html) {
+                html.setAttribute('data-bs-theme', savedTheme);
+                await this.updateThemeIcon(savedTheme);
             }
-
-            document.documentElement?.setAttribute('data-bs-theme', savedTheme);
-            await this.updateThemeIcon(savedTheme);
         } catch (error) {
             console.error('Error initializing theme:', error);
         }
     }
 
     async updateThemeIcon(theme) {
-        try {
-            const iconElement = this.elements.themeIcon;
-            if (!iconElement) return;
+        const iconElement = this.elements.themeIcon;
+        if (!iconElement) return;
 
-            iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
-            iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
-        } catch (error) {
-            console.error('Error updating theme icon:', error);
-        }
+        iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
+        iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
     }
 
     async toggleTheme() {
@@ -123,13 +94,7 @@ class ChatInterface {
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
             html.setAttribute('data-bs-theme', newTheme);
-            
-            try {
-                localStorage.setItem('theme', newTheme);
-            } catch (error) {
-                console.warn('Error saving theme preference:', error);
-            }
-
+            localStorage.setItem('theme', newTheme);
             await this.updateThemeIcon(newTheme);
         } catch (error) {
             console.error('Error toggling theme:', error);
@@ -145,9 +110,7 @@ class ChatInterface {
             const contactNameElement = contactElement.querySelector('.contact-name');
             const contactName = contactNameElement?.textContent;
 
-            if (!contact || !contactName) {
-                throw new Error('Invalid contact data');
-            }
+            if (!contact || !contactName) return;
 
             this.currentContact = contact;
             
@@ -165,13 +128,9 @@ class ChatInterface {
     }
 
     handleBack() {
-        try {
-            this.elements.chatView?.classList.remove('active');
-            this.elements.contactsView?.classList.add('active');
-            this.currentContact = null;
-        } catch (error) {
-            console.error('Error handling back:', error);
-        }
+        this.elements.chatView?.classList.remove('active');
+        this.elements.contactsView?.classList.add('active');
+        this.currentContact = null;
     }
 
     async loadMessages(contact) {
@@ -257,6 +216,7 @@ class ChatInterface {
     }
 
     startPeriodicUpdates() {
+        // Update message times every minute
         setInterval(() => {
             document.querySelectorAll('.message-time').forEach(timeElement => {
                 const datetime = timeElement.getAttribute('datetime');
@@ -266,6 +226,7 @@ class ChatInterface {
             });
         }, 60000);
 
+        // Refresh messages every 30 seconds if chat is open
         setInterval(() => {
             if (this.currentContact) {
                 this.loadMessages(this.currentContact).catch(error => {
@@ -276,6 +237,7 @@ class ChatInterface {
     }
 }
 
+// Initialize the chat interface
 document.addEventListener('DOMContentLoaded', () => {
     try {
         window.chatInterface = new ChatInterface();
