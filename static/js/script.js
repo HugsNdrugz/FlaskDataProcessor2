@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Cache DOM elements with proper null checks
+    // Cache DOM elements with proper null checks and initialization
     const elements = {
         darkModeToggler: document.querySelector('.messages-page__dark-mode-toogler'),
         chatSection: document.querySelector('.chat-section'),
@@ -7,11 +7,11 @@ document.addEventListener('DOMContentLoaded', function() {
         messageContainer: document.querySelector('.chat__content'),
         backButton: document.querySelector('.back-button'),
         contactItems: document.querySelectorAll('.contact-item'),
-        chatHeader: document.querySelector('.chat-section .messages-page__header .messages-page__title')
+        chatHeader: document.querySelector('.chat-section .messages-page__title')
     };
 
     // Initialize theme from localStorage
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'dark';
     document.body.setAttribute('data-bs-theme', savedTheme);
 
     // Mobile view state
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Add resize listener
+    // Event listeners
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial call
 
@@ -77,12 +77,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                    // Fetch messages
+                    // Fetch messages for selected contact
                     fetch(`/messages/${contact}`)
                         .then(response => response.json())
                         .then(messages => {
                             if (elements.messageContainer) {
-                                elements.messageContainer.innerHTML = messages.map(msg => createMessageBubble(msg)).join('');
+                                elements.messageContainer.innerHTML = `<div class="messages-list">${
+                                    messages.map(msg => createMessageBubble(msg)).join('')
+                                }</div>`;
                                 scrollToBottom();
                                 updateMessageTimes();
                             }
@@ -157,8 +159,4 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update times periodically
     updateMessageTimes();
     setInterval(updateMessageTimes, 60000);
-
-    // Initial setup
-    handleResize();
-    scrollToBottom();
 });
