@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cache DOM elements with null checks
     const darkModeToggler = document.querySelector(".messages-page__dark-mode-toogler");
     const messageContainer = document.querySelector(".chat__content");
-    const messagesPage = document.querySelector(".messages-page");
     const messageForm = document.querySelector(".message-form");
     
     // Initialize touch events for mobile
@@ -13,8 +12,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleResize() {
         if (window.innerWidth <= 768) {
             document.body.classList.add('mobile-view');
+            if (messageContainer) {
+                messageContainer.style.height = `calc(100vh - ${document.querySelector('.messages-page__header').offsetHeight}px - ${document.querySelector('.message-input-container').offsetHeight}px)`;
+            }
         } else {
             document.body.classList.remove('mobile-view');
+            if (messageContainer) {
+                messageContainer.style.height = '';
+            }
         }
     }
 
@@ -22,38 +27,45 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial call
 
-    // Dark mode toggle with localStorage
+    // Dark mode toggle with localStorage and proper error handling
     if (darkModeToggler) {
         darkModeToggler.addEventListener("click", () => {
-            document.body.classList.toggle("dark-mode");
-            // Save dark mode preference
-            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+            const theme = document.body.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-bs-theme', theme);
+            localStorage.setItem('theme', theme);
         });
 
-        // Check for saved dark mode preference
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.body.classList.add('dark-mode');
-        }
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.setAttribute('data-bs-theme', savedTheme);
     }
 
-    // Mobile touch events
+    // Mobile touch events with proper error handling
     if (messageContainer) {
         messageContainer.addEventListener('touchstart', (e) => {
             touchStartY = e.touches[0].clientY;
         }, { passive: true });
 
         messageContainer.addEventListener('touchmove', (e) => {
+            if (!messageContainer.scrollHeight) return;
+            
             touchEndY = e.touches[0].clientY;
             const deltaY = touchEndY - touchStartY;
             
-            if (Math.abs(deltaY) > 10) {
+            // Only prevent default if we're at the bounds
+            const isAtTop = messageContainer.scrollTop <= 0 && deltaY > 0;
+            const isAtBottom = messageContainer.scrollTop + messageContainer.clientHeight >= messageContainer.scrollHeight && deltaY < 0;
+            
+            if (isAtTop || isAtBottom) {
                 e.preventDefault();
-                messageContainer.scrollTop -= deltaY;
             }
+            
+            messageContainer.scrollTop -= deltaY;
+            touchStartY = touchEndY;
         }, { passive: false });
     }
 
-    // Message timestamps
+    // Message timestamps with proper error handling
     function updateMessageTimes() {
         const timestamps = document.querySelectorAll('.message-time');
         timestamps.forEach(timestamp => {
@@ -65,6 +77,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function formatMessageTime(date) {
+        if (!date || !(date instanceof Date) || isNaN(date)) return '';
+        
         const now = new Date();
         const diff = now - date;
         const minutes = Math.floor(diff / 60000);
@@ -76,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return date.toLocaleDateString();
     }
 
-    // Handle message form submission
+    // Handle message form submission with proper error handling
     if (messageForm) {
         messageForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -85,6 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Here we would typically send the message to the server
                 // For now, just clear the input
                 input.value = '';
+                scrollToBottom();
             }
         });
     }
