@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     fetchConversations();
-    setupMessageForm();
+    const form = document.getElementById('message-form');
+    if (form) {
+        setupMessageForm(form);
+    }
 });
 
 function fetchConversations() {
@@ -43,14 +46,24 @@ function createConversationElement(conversation) {
 
 function loadConversation(conversationId) {
     document.querySelectorAll('#conversation-list a').forEach(el => el.classList.remove('active'));
-    document.querySelector(`#conversation-list a[data-conversation-id="${conversationId}"]`).classList.add('active');
+    const selectedConv = document.querySelector(`#conversation-list a[data-conversation-id="${conversationId}"]`);
+    if (selectedConv) {
+        selectedConv.classList.add('active');
+        document.getElementById('current-conversation').textContent = 
+            selectedConv.querySelector('h6').textContent;
+    }
     
     fetchMessages(conversationId);
-    document.getElementById('current-conversation').textContent = 
-        document.querySelector(`#conversation-list a[data-conversation-id="${conversationId}"] h6`).textContent;
     
-    document.getElementById('message-content').disabled = false;
-    document.querySelector('#message-form button[type="submit"]').disabled = false;
+    const messageInput = document.getElementById('message-content');
+    const submitButton = document.querySelector('#message-form button[type="submit"]');
+    const messageForm = document.getElementById('message-form');
+    
+    if (messageInput && submitButton && messageForm) {
+        messageInput.disabled = false;
+        submitButton.disabled = false;
+        messageForm.dataset.conversationId = conversationId;
+    }
 }
 
 function fetchMessages(conversationId) {
@@ -70,7 +83,7 @@ function fetchMessages(conversationId) {
 
 function createMessageElement(message) {
     const element = document.createElement('div');
-    element.classList.add('message', message.sender_id === 1 ? 'sent' : 'received', 'mb-2');
+    element.classList.add('message', message.sender_id === 1 ? 'sent' : 'received');
     
     const timestamp = new Date(message.timestamp);
     const formattedTime = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -85,19 +98,17 @@ function createMessageElement(message) {
     return element;
 }
 
-function setupMessageForm() {
-    const form = document.getElementById('message-form');
+function setupMessageForm(form) {
+    const input = document.getElementById('message-content');
+    if (!input) return;
+
     form.addEventListener('submit', (event) => {
         event.preventDefault();
-        const content = document.getElementById('message-content').value.trim();
-        if (content) {
-            const activeConversation = document.querySelector('#conversation-list a.active');
-            if (activeConversation) {
-                const conversationId = activeConversation.dataset.conversationId;
-                sendMessage(conversationId, content);
-            } else {
-                alert('Please select a conversation first.');
-            }
+        const content = input.value.trim();
+        const conversationId = form.dataset.conversationId;
+        if (content && conversationId) {
+            sendMessage(conversationId, content);
+            input.value = '';
         }
     });
 }
@@ -110,14 +121,13 @@ function sendMessage(conversationId, content) {
         },
         body: JSON.stringify({
             conversation_id: conversationId,
-            sender_id: 1,  // Assuming user_id 1 for demonstration
+            sender_id: 1, // Using user_id 1 for demonstration
             content: content
-        }),
+        })
     })
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            document.getElementById('message-content').value = '';
             fetchMessages(conversationId);
         }
     })
@@ -126,5 +136,7 @@ function sendMessage(conversationId, content) {
 
 function scrollToBottom() {
     const messageList = document.getElementById('message-list');
-    messageList.scrollTop = messageList.scrollHeight;
+    if (messageList) {
+        messageList.scrollTop = messageList.scrollHeight;
+    }
 }

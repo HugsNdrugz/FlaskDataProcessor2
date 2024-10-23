@@ -15,6 +15,14 @@ author = "agent"
 task = "workflow.run"
 args = "Start Flask App"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Python Shell"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Init DB"
+
 [[workflows.workflow]]
 name = "Start Flask App"
 author = "agent"
@@ -24,11 +32,33 @@ agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "python3 main.py"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "Python Shell"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 -i"
+
+[[workflows.workflow]]
+name = "Init DB"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 init_db.py"
+
 [deployment]
-run = ["sh", "-c", "python main.py"]
+run = ["sh", "-c", "python3 main.py"]
 
 [[ports]]
 localPort = 5000
