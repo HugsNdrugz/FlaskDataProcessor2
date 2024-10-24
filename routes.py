@@ -1,18 +1,20 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify
 from sqlalchemy import text
-from models import db, Messages, Chat
+from models import db
 from datetime import datetime
 
 routes = Blueprint('routes', __name__)
 
 @routes.route('/')
 def index():
+    # Query to get latest message for each contact from chats table
     query = text("""
         SELECT DISTINCT ON (sender) 
             sender as contact,
             time,
             text
         FROM chat
+        WHERE sender != 'You'
         ORDER BY sender, time DESC
     """)
     
@@ -35,16 +37,16 @@ def index():
 def get_messages(contact):
     query = text("""
         SELECT 
-            sender,
-            time,
-            text,
+            c.sender,
+            c.time,
+            c.text,
             CASE 
-                WHEN sender = :contact THEN false
+                WHEN c.sender = :contact THEN false
                 ELSE true
             END as is_outgoing
-        FROM chat 
-        WHERE sender = :contact OR sender = 'You'
-        ORDER BY time ASC
+        FROM chat c
+        WHERE c.sender = :contact OR c.sender = 'You'
+        ORDER BY c.time ASC
     """)
     
     try:
@@ -62,29 +64,3 @@ def get_messages(contact):
     except Exception as e:
         print(f"Database error: {str(e)}")
         return jsonify([])
-
-@routes.route('/messages/send', methods=['POST'])
-def send_message():
-    try:
-        data = request.get_json()
-        contact = data.get('contact')
-        message_text = data.get('message')
-        
-        if not contact or not message_text:
-            return jsonify({'error': 'Missing contact or message'}), 400
-        
-        # Insert into chat table
-        new_message = Chat(
-            sender='You',
-            text=message_text,
-            time=datetime.utcnow()
-        )
-        
-        db.session.add(new_message)
-        db.session.commit()
-        
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        print(f"Error sending message: {str(e)}")
-        db.session.rollback()
-        return jsonify({'error': 'Failed to send message'}), 500

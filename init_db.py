@@ -1,5 +1,5 @@
 from app import create_app
-from models import db, Chat, SMS, Messages
+from models import db, Chat
 from datetime import datetime, timedelta
 
 def init_db():
@@ -9,35 +9,31 @@ def init_db():
         db.drop_all()
         db.create_all()
 
-        # Create sample data
+        # Create sample chat data with conversations
+        now = datetime.utcnow()
         sample_chats = [
-            Chat(sender='Alice', text='Hey there!', time=datetime.utcnow() - timedelta(days=1)),
-            Chat(sender='Bob', text='How are you?', time=datetime.utcnow() - timedelta(hours=12)),
-            Chat(sender='Charlie', text='Meeting at 3?', time=datetime.utcnow() - timedelta(hours=2))
-        ]
-
-        sample_sms = [
-            SMS(from_to='Alice', text='At the coffee shop', time=datetime.utcnow() - timedelta(hours=1), 
-                location='Coffee Shop, Downtown'),
-            SMS(from_to='Bob', text='On my way', time=datetime.utcnow() - timedelta(minutes=30), 
-                location='Central Station'),
-            SMS(from_to='Charlie', text='Yes, see you there!', time=datetime.utcnow(), 
-                location='Office Building')
-        ]
-
-        sample_messages = [
-            Messages(sender='You', recipient='Alice', message='Great, see you soon!',
-                    timestamp=datetime.utcnow() - timedelta(minutes=45), is_read=True),
-            Messages(sender='Bob', recipient='You', message='Let\'s catch up later',
-                    timestamp=datetime.utcnow() - timedelta(minutes=20), is_read=False),
-            Messages(sender='You', recipient='Charlie', message='Perfect, I\'ll be ready',
-                    timestamp=datetime.utcnow() - timedelta(minutes=10), is_read=True)
+            # Alice conversation
+            Chat(sender='Alice', text='Hey there!', time=now - timedelta(hours=5)),
+            Chat(sender='You', text='Hi Alice! How are you?', time=now - timedelta(hours=4, minutes=55)),
+            Chat(sender='Alice', text='I\'m good, thanks! Want to grab lunch?', time=now - timedelta(hours=4, minutes=50)),
+            Chat(sender='You', text='Sure, that sounds great!', time=now - timedelta(hours=4, minutes=45)),
+            
+            # Bob conversation
+            Chat(sender='Bob', text='How are you?', time=now - timedelta(hours=3)),
+            Chat(sender='You', text='Doing well, thanks! How about you?', time=now - timedelta(hours=2, minutes=55)),
+            Chat(sender='Bob', text='Pretty good! Working on the project', time=now - timedelta(hours=2, minutes=50)),
+            Chat(sender='You', text='Nice! Let me know if you need help', time=now - timedelta(hours=2, minutes=45)),
+            
+            # Charlie conversation
+            Chat(sender='Charlie', text='Meeting at 3?', time=now - timedelta(hours=1)),
+            Chat(sender='You', text='Yes, I\'ll be there!', time=now - timedelta(minutes=55)),
+            Chat(sender='Charlie', text='Great, see you then!', time=now - timedelta(minutes=50)),
+            Chat(sender='You', text='Perfect, conference room A right?', time=now - timedelta(minutes=45)),
+            Chat(sender='Charlie', text='Yep, that\'s correct', time=now - timedelta(minutes=40))
         ]
 
         # Add sample data to database
         db.session.add_all(sample_chats)
-        db.session.add_all(sample_sms)
-        db.session.add_all(sample_messages)
         
         try:
             db.session.commit()

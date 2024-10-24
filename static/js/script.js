@@ -4,7 +4,6 @@ class ChatInterface {
     constructor() {
         this.currentContact = null;
         this.elements = {};
-        this.periodicUpdates = null;
         
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
@@ -18,7 +17,6 @@ class ChatInterface {
             await this.cacheElements();
             await this.initializeTheme();
             this.bindEvents();
-            this.startPeriodicUpdates();
         } catch (error) {
             console.error('Error in init:', error);
         }
@@ -32,8 +30,6 @@ class ChatInterface {
             backButton: '.back-button',
             themeToggle: '.theme-toggle',
             themeIcon: '.theme-toggle i',
-            messageForm: '.message-form',
-            messageInput: 'input[name="message"]',
             messagesList: '.messages-list',
             chatContactName: '#chatView .contact-name'
         };
@@ -69,10 +65,6 @@ class ChatInterface {
 
         if (this.elements.themeToggle) {
             this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
-        }
-
-        if (this.elements.messageForm) {
-            this.elements.messageForm.addEventListener('submit', (e) => this.handleMessageSubmit(e));
         }
     }
 
@@ -170,54 +162,13 @@ class ChatInterface {
 
     createMessageBubble(message) {
         const bubbleClass = message.is_outgoing ? 'message-bubble--outgoing' : 'message-bubble--incoming';
+        
         return `
             <div class="message-bubble ${bubbleClass}">
                 <div class="message-text">${message.text}</div>
                 <time class="message-time" datetime="${message.time}">${message.time}</time>
             </div>
         `;
-    }
-
-    async handleMessageSubmit(event) {
-        event.preventDefault();
-        
-        if (!this.currentContact) return;
-        
-        const messageInput = this.elements.messageInput;
-        if (!messageInput) return;
-        
-        const messageText = messageInput.value.trim();
-        if (!messageText) return;
-        
-        try {
-            const response = await fetch('/messages/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contact: this.currentContact,
-                    message: messageText
-                })
-            });
-
-            if (response.ok) {
-                messageInput.value = '';
-                await this.loadMessages(this.currentContact);
-            } else {
-                console.error('Failed to send message');
-            }
-        } catch (error) {
-            console.error('Error sending message:', error);
-        }
-    }
-
-    startPeriodicUpdates() {
-        this.periodicUpdates = setInterval(() => {
-            if (this.currentContact) {
-                this.loadMessages(this.currentContact);
-            }
-        }, 30000);
     }
 }
 
