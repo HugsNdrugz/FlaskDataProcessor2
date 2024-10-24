@@ -5,7 +5,8 @@ class ChatInterface {
         this.currentContact = null;
         this.elements = {};
         this.periodicUpdates = null;
-
+        
+        // Defer initialization to when DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
@@ -40,9 +41,15 @@ class ChatInterface {
 
         for (const [key, selector] of Object.entries(selectors)) {
             try {
-                this.elements[key] = key === 'contacts' 
+                const element = key === 'contacts' 
                     ? document.querySelectorAll(selector)
                     : document.querySelector(selector);
+                    
+                if (!element && key !== 'contacts') {
+                    console.warn(`Element not found: ${selector}`);
+                }
+                
+                this.elements[key] = element;
             } catch (error) {
                 console.warn(`Error caching element ${key}:`, error);
                 this.elements[key] = null;
@@ -51,23 +58,32 @@ class ChatInterface {
     }
 
     bindEvents() {
+        // Bind contact click events
         if (this.elements.contacts?.length) {
-            this.elements.contacts.forEach(contact => {
-                if (contact) {
-                    contact.addEventListener('click', this.handleContactClick.bind(this));
-                }
+            Array.from(this.elements.contacts).forEach(contact => {
+                contact?.addEventListener('click', (e) => this.handleContactClick(e));
             });
         }
 
-        this.elements.backButton?.addEventListener('click', this.handleBack.bind(this));
-        this.elements.themeToggle?.addEventListener('click', this.toggleTheme.bind(this));
-        this.elements.messageForm?.addEventListener('submit', this.handleMessageSubmit.bind(this));
+        // Bind other UI events
+        if (this.elements.backButton) {
+            this.elements.backButton.addEventListener('click', () => this.handleBack());
+        }
+
+        if (this.elements.themeToggle) {
+            this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
+
+        if (this.elements.messageForm) {
+            this.elements.messageForm.addEventListener('submit', (e) => this.handleMessageSubmit(e));
+        }
     }
 
     async initializeTheme() {
         try {
-            let savedTheme = localStorage.getItem('theme') || 'dark';
+            const savedTheme = localStorage.getItem('theme') ?? 'dark';
             const html = document.documentElement;
+            
             if (html) {
                 html.setAttribute('data-bs-theme', savedTheme);
                 await this.updateThemeIcon(savedTheme);
@@ -78,11 +94,15 @@ class ChatInterface {
     }
 
     async updateThemeIcon(theme) {
-        const iconElement = this.elements.themeIcon;
-        if (!iconElement) return;
+        try {
+            const iconElement = this.elements.themeIcon;
+            if (!iconElement) return;
 
-        iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
-        iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
+            iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
+            iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
+        } catch (error) {
+            console.error('Error updating theme icon:', error);
+        }
     }
 
     async toggleTheme() {
@@ -90,7 +110,7 @@ class ChatInterface {
             const html = document.documentElement;
             if (!html) return;
 
-            const currentTheme = html.getAttribute('data-bs-theme') || 'dark';
+            const currentTheme = html.getAttribute('data-bs-theme') ?? 'dark';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
             html.setAttribute('data-bs-theme', newTheme);
@@ -128,9 +148,13 @@ class ChatInterface {
     }
 
     handleBack() {
-        this.elements.chatView?.classList.remove('active');
-        this.elements.contactsView?.classList.add('active');
-        this.currentContact = null;
+        try {
+            this.elements.chatView?.classList.remove('active');
+            this.elements.contactsView?.classList.add('active');
+            this.currentContact = null;
+        } catch (error) {
+            console.error('Error handling back:', error);
+        }
     }
 
     async loadMessages(contact) {
@@ -217,31 +241,49 @@ class ChatInterface {
 
     startPeriodicUpdates() {
         // Update message times every minute
-        setInterval(() => {
-            document.querySelectorAll('.message-time').forEach(timeElement => {
-                const datetime = timeElement.getAttribute('datetime');
-                if (datetime) {
-                    timeElement.textContent = this.formatTime(new Date(datetime));
-                }
-            });
+        const updateTimeInterval = setInterval(() => {
+            try {
+                document.querySelectorAll('.message-time').forEach(timeElement => {
+                    const datetime = timeElement.getAttribute('datetime');
+                    if (datetime) {
+                        timeElement.textContent = this.formatTime(new Date(datetime));
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating message times:', error);
+            }
         }, 60000);
 
         // Refresh messages every 30 seconds if chat is open
-        setInterval(() => {
-            if (this.currentContact) {
-                this.loadMessages(this.currentContact).catch(error => {
-                    console.error('Error refreshing messages:', error);
-                });
+        const refreshMessagesInterval = setInterval(() => {
+            try {
+                if (this.currentContact) {
+                    this.loadMessages(this.currentContact);
+                }
+            } catch (error) {
+                console.error('Error refreshing messages:', error);
             }
         }, 30000);
+
+        // Store intervals for cleanup if needed
+        this.periodicUpdates = {
+            updateTime: updateTimeInterval,
+            refreshMessages: refreshMessagesInterval
+        };
     }
 }
 
 // Initialize the chat interface
-document.addEventListener('DOMContentLoaded', () => {
+const initChatInterface = () => {
     try {
         window.chatInterface = new ChatInterface();
     } catch (error) {
         console.error('Error creating ChatInterface:', error);
     }
-});
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initChatInterface);
+} else {
+    initChatInterface();
+}
