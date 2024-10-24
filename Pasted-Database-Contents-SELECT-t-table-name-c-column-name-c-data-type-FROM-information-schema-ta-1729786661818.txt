@@ -1,0 +1,72 @@
+Database Contents
+SELECT
+  t.table_name,
+  c.column_name,
+  c.data_type
+FROM
+  information_schema.tables t
+JOIN
+  information_schema.columns c ON t.table_name = c.table_name
+WHERE
+  t.table_schema = 'public'  -- Now using the correct schema name
+ORDER BY
+  t.table_name,
+  c.ordinal_position;
+table_name	column_name	data_type
+applications	application_id	integer
+applications	application_name	character varying
+applications	package_name	character varying
+applications	installed_date	timestamp without time zone
+calls	id	integer
+calls	call_type	character varying
+calls	time	timestamp without time zone
+calls	from_to	character varying
+calls	duration	integer
+calls	location	character varying
+chat	id	integer
+chat	sender	character varying
+chat	text	text
+chat	time	timestamp without time zone
+chats	chat_id	integer
+chats	messenger	character varying
+chats	time	timestamp without time zone
+chats	sender	character varying
+chats	text	text
+contact	id	integer
+contact	name	character varying
+contact	last_message	character varying
+contact	last_message_time	timestamp without time zone
+contacts	contact_id	integer
+contacts	name	character varying
+conversation	id	integer
+conversation	user1_id	integer
+conversation	user2_id	integer
+conversation	last_message_time	timestamp without time zone
+installed_apps	app_id	integer
+installed_apps	application_name	character varying
+installed_apps	package_name	character varying
+installed_apps	install_date	timestamp without time zone
+keylogs	keylog_id	integer
+keylogs	application	character varying
+keylogs	time	timestamp without time zone
+keylogs	text	text
+message	id	integer
+message	conversation_id	integer
+message	sender_id	integer
+message	content	text
+message	timestamp	timestamp without time zone
+messages	id	integer
+messages	sender	character varying
+messages	recipient	character varying
+messages	message	text
+messages	timestamp	timestamp without time zone
+messages	is_read	boolean
+sms	id	integer
+sms	from_to	character varying
+sms	text	text
+sms	time	timestamp without time zone
+sms	location	character varying
+user	id	integer
+user	username	character varying
+user	email	character varying
+user	password_hash	character varying
