@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from routes import routes
-from models import db, test_db_connection
+from models import db, test_db_connection, init_db_settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def create_app():
     app = Flask(__name__)
     
-    # Configure database using environment variables
+    # Configure database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev')
@@ -26,20 +26,24 @@ def create_app():
     except OSError:
         pass
 
-    # Test database connection
-    if not test_db_connection(app):
-        logger.error("Failed to connect to the database. Please check your database configuration.")
-    else:
-        with app.app_context():
-            try:
-                db.create_all()
-                logger.info("Database tables created successfully!")
-            except Exception as e:
-                logger.error(f"Error creating database tables: {str(e)}")
+    # Initialize database
+    with app.app_context():
+        try:
+            db.create_all()
+            init_db_settings(app)
+            logger.info("Database initialized successfully!")
+        except Exception as e:
+            logger.error(f"Error initializing database: {str(e)}")
+            raise
         
     return app
 
-app = create_app()
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    try:
+        app = create_app()
+        if test_db_connection(app):
+            app.run(host='0.0.0.0', port=5000)
+        else:
+            logger.error("Failed to connect to database. Exiting.")
+    except Exception as e:
+        logger.error(f"Failed to start application: {str(e)}")

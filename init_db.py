@@ -1,5 +1,5 @@
 from app import create_app
-from models import db, Chat, Messages
+from models import db, Messages
 from datetime import datetime, timedelta
 import logging
 
@@ -14,33 +14,23 @@ def init_db():
         db.drop_all()
         db.create_all()
 
-        # Create sample chat data with incoming messages
+        # Create sample messenger data with conversations
         now = datetime.utcnow()
         
-        # Sample chat messages
-        sample_chats = [
-            Chat(sender='Alice', text='Hey there!', time=now - timedelta(hours=5)),
-            Chat(sender='Alice', text='I\'m good, thanks! Want to grab lunch?', time=now - timedelta(hours=4, minutes=50)),
-            Chat(sender='Bob', text='How are you?', time=now - timedelta(hours=3)),
-            Chat(sender='Bob', text='Pretty good! Working on the project', time=now - timedelta(hours=2, minutes=50)),
-            Chat(sender='Charlie', text='Meeting at 3?', time=now - timedelta(hours=1)),
-            Chat(sender='Charlie', text='Great, see you then!', time=now - timedelta(minutes=50)),
-            Chat(sender='Charlie', text='Yep, that\'s correct', time=now - timedelta(minutes=40))
-        ]
-
-        # Sample messenger data
         sample_messages = [
             Messages(sender='Alice', recipient='user', message='Hey there!', timestamp=now - timedelta(hours=5)),
+            Messages(sender='user', recipient='Alice', message='Hi Alice! How are you?', timestamp=now - timedelta(hours=4, minutes=55)),
             Messages(sender='Alice', recipient='user', message='I\'m good, thanks! Want to grab lunch?', timestamp=now - timedelta(hours=4, minutes=50)),
             Messages(sender='Bob', recipient='user', message='How are you?', timestamp=now - timedelta(hours=3)),
-            Messages(sender='Bob', recipient='user', message='Pretty good! Working on the project', timestamp=now - timedelta(hours=2, minutes=50)),
+            Messages(sender='user', recipient='Bob', message='Doing well! Working on the project', timestamp=now - timedelta(hours=2, minutes=55)),
+            Messages(sender='Bob', recipient='user', message='Pretty good! Making progress?', timestamp=now - timedelta(hours=2, minutes=50)),
             Messages(sender='Charlie', recipient='user', message='Meeting at 3?', timestamp=now - timedelta(hours=1)),
+            Messages(sender='user', recipient='Charlie', message='Yes, that works for me', timestamp=now - timedelta(minutes=55)),
             Messages(sender='Charlie', recipient='user', message='Great, see you then!', timestamp=now - timedelta(minutes=50)),
             Messages(sender='Charlie', recipient='user', message='Yep, that\'s correct', timestamp=now - timedelta(minutes=40))
         ]
 
         # Add sample data to database
-        db.session.add_all(sample_chats)
         db.session.add_all(sample_messages)
         
         try:

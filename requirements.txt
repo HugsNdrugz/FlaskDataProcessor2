@@ -7,3 +7,4 @@ email-validator
 flask-sqlalchemy
 psycopg2-binary
 sqlalchemy
+cachetools

@@ -1,23 +1,27 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import text
+from sqlalchemy import text, Index
 from sqlalchemy.exc import SQLAlchemyError
 import logging
+from datetime import datetime
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class Base(DeclarativeBase):
     pass
 
+# Configure SQLAlchemy
 db = SQLAlchemy(model_class=Base)
 
 def test_db_connection(app):
-    """Test database connection and log the result"""
+    """Test database connection with improved error handling and logging"""
     try:
         with app.app_context():
-            # Try to execute a simple query using text()
             db.session.execute(text('SELECT 1'))
             logger.info("Database connection successful!")
             return True
@@ -25,113 +29,64 @@ def test_db_connection(app):
         logger.error(f"Database connection failed: {str(e)}")
         return False
 
-class Chat(db.Model):
-    __tablename__ = 'chat'
-    id = db.Column(db.Integer, primary_key=True)
-    sender = db.Column(db.String(100), nullable=False)
-    text = db.Column(db.Text, nullable=False)
-    time = db.Column(db.DateTime, nullable=False)
-
-    def __init__(self, sender, text, time):
-        self.sender = sender
-        self.text = text
-        self.time = time
-
-    def __repr__(self):
-        return f'<Chat {self.sender}: {self.text}>'
-
-class SMS(db.Model):
-    __tablename__ = 'sms'
-    id = db.Column(db.Integer, primary_key=True)
-    from_to = db.Column(db.String(100), nullable=False)
-    text = db.Column(db.Text, nullable=False)
-    time = db.Column(db.DateTime, nullable=False)
-    location = db.Column(db.String(200))
-
-    def __init__(self, from_to, text, time, location=None):
-        self.from_to = from_to
-        self.text = text
-        self.time = time
-        self.location = location
-
-    def __repr__(self):
-        return f'<SMS {self.from_to}: {self.text}>'
-
 class Messages(db.Model):
+    """Messages model with optimized indexes"""
     __tablename__ = 'messages'
-    id = db.Column(db.Integer, primary_key=True)
-    sender = db.Column(db.String(100), nullable=False)
-    recipient = db.Column(db.String(100), nullable=False)
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    sender = db.Column(db.String(100), nullable=False, index=True)
+    recipient = db.Column(db.String(100), nullable=False, index=True)
     message = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.DateTime, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
     is_read = db.Column(db.Boolean, default=False)
     
-    def __init__(self, sender, recipient, message, timestamp, is_read=False):
+    __table_args__ = (
+        Index('idx_sender_recipient', 'sender', 'recipient'),
+        Index('idx_timestamp', 'timestamp'),
+    )
+
+    def __init__(self, sender, recipient, message, timestamp=None, is_read=False):
         self.sender = sender
         self.recipient = recipient
         self.message = message
-        self.timestamp = timestamp
+        self.timestamp = timestamp or datetime.utcnow()
         self.is_read = is_read
 
     def __repr__(self):
-        return f'<Message {self.sender} to {self.recipient}: {self.message[:20]}...>'
+        return f'<Message {self.sender} to {self.recipient}: {self.message[:50]}>'
 
-class Calls(db.Model):
-    __tablename__ = 'calls'
-    id = db.Column(db.Integer, primary_key=True)
-    call_type = db.Column(db.String(50), nullable=False)
-    time = db.Column(db.DateTime, nullable=False)
-    from_to = db.Column(db.String(100), nullable=False)
-    duration = db.Column(db.Integer)
-    location = db.Column(db.String(200))
-
-    def __init__(self, call_type, time, from_to, duration=None, location=None):
-        self.call_type = call_type
-        self.time = time
-        self.from_to = from_to
-        self.duration = duration
-        self.location = location
-
-    def __repr__(self):
-        return f'<Call {self.from_to}: {self.duration}s>'
-
-class Contacts(db.Model):
-    __tablename__ = 'contacts'
-    contact_id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return f'<Contact {self.name}>'
-
-class InstalledApps(db.Model):
-    __tablename__ = 'installed_apps'
-    app_id = db.Column(db.Integer, primary_key=True)
-    application_name = db.Column(db.String(200), nullable=False)
-    package_name = db.Column(db.String(200), nullable=False)
-    install_date = db.Column(db.DateTime, nullable=False)
-
-    def __init__(self, application_name, package_name, install_date):
-        self.application_name = application_name
-        self.package_name = package_name
-        self.install_date = install_date
-
-    def __repr__(self):
-        return f'<App {self.application_name}>'
-
-class Keylogs(db.Model):
-    __tablename__ = 'keylogs'
-    keylog_id = db.Column(db.Integer, primary_key=True)
-    application = db.Column(db.String(200), nullable=False)
-    time = db.Column(db.DateTime, nullable=False)
+class Chat(db.Model):
+    """Chat model with optimized indexes"""
+    __tablename__ = 'chat'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    sender = db.Column(db.String(100), nullable=False, index=True)
     text = db.Column(db.Text, nullable=False)
+    time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    
+    __table_args__ = (
+        Index('idx_sender_time', 'sender', 'time'),
+    )
 
-    def __init__(self, application, time, text):
-        self.application = application
-        self.time = time
+    def __init__(self, sender, text, time=None):
+        self.sender = sender
         self.text = text
+        self.time = time or datetime.utcnow()
 
     def __repr__(self):
-        return f'<Keylog {self.application}: {self.text[:20]}...>'
+        return f'<Chat {self.sender}: {self.text[:50]}>'
+
+def init_db_settings(app):
+    """Initialize database settings"""
+    with app.app_context():
+        try:
+            # Set session parameters for optimization
+            db.session.execute(text("SET work_mem = '16MB'"))
+            db.session.execute(text("SET maintenance_work_mem = '128MB'"))
+            db.session.execute(text("SET random_page_cost = 1.1"))
+            db.session.execute(text("SET effective_cache_size = '1GB'"))
+            db.session.commit()
+            logger.info("Database settings initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing database settings: {str(e)}")
+            db.session.rollback()
