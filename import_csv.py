@@ -6,6 +6,7 @@ import os
 import logging
 import time
 from sqlalchemy.exc import OperationalError, IntegrityError
+from sqlalchemy import text
 from contextlib import contextmanager
 
 # Configure logging
@@ -15,23 +16,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 100
-MAX_RETRIES = 3
-RETRY_DELAY = 1  # seconds
+BATCH_SIZE = 50  # Reduced batch size to minimize deadlock risk
+MAX_RETRIES = 5  # Increased retries
+RETRY_DELAY = 2  # seconds
+
+def create_indexes():
+    """Create indexes to improve import performance"""
+    try:
+        with db.engine.connect() as conn:
+            indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_chat_sender ON chat(sender)",
+                "CREATE INDEX IF NOT EXISTS idx_chat_time ON chat(time)",
+                "CREATE INDEX IF NOT EXISTS idx_sms_from_to ON sms(from_to)",
+                "CREATE INDEX IF NOT EXISTS idx_sms_time ON sms(time)",
+                "CREATE INDEX IF NOT EXISTS idx_calls_from_to ON calls(from_to)",
+                "CREATE INDEX IF NOT EXISTS idx_calls_time ON calls(time)",
+                "CREATE INDEX IF NOT EXISTS idx_keylogs_time ON keylogs(time)",
+                "CREATE INDEX IF NOT EXISTS idx_installed_apps_name ON installed_apps(application_name)"
+            ]
+            
+            for index_sql in indexes:
+                conn.execute(text(index_sql))
+                conn.commit()
+            
+            logger.info("Database indexes created successfully")
+    except Exception as e:
+        logger.error(f"Error creating indexes: {str(e)}")
+        raise
 
 @contextmanager
 def transaction_scope():
-    """Provide a transactional scope around a series of operations."""
+    """Provide a transactional scope with proper isolation level"""
+    connection = db.engine.connect()
+    transaction = connection.begin()
     try:
-        yield
-        db.session.commit()
+        connection.execute(text("SET TRANSACTION ISOLATION LEVEL READ COMMITTED"))
+        yield connection
+        transaction.commit()
     except Exception as e:
-        logger.error(f"Error in transaction: {str(e)}")
-        db.session.rollback()
+        transaction.rollback()
+        logger.error(f"Transaction error: {str(e)}")
         raise
+    finally:
+        connection.close()
 
 def import_in_batches(df, model_class, transform_func, table_name):
-    """Import data in batches with retry logic"""
+    """Import data in batches with improved retry logic"""
     total_records = len(df)
     processed = 0
     
@@ -42,119 +72,94 @@ def import_in_batches(df, model_class, transform_func, table_name):
         retries = 0
         while retries < MAX_RETRIES:
             try:
-                with transaction_scope():
+                with transaction_scope() as conn:
+                    objects = []
                     for _, row in batch_df.iterrows():
-                        db.session.add(transform_func(row))
-                    processed += len(batch_df)
-                    logger.info(f"Imported {processed}/{total_records} records into {table_name}")
+                        obj = model_class()
+                        for key, value in transform_func(row).items():
+                            setattr(obj, key, value)
+                        objects.append(obj)
+                    
+                    db.session.bulk_save_objects(objects)
+                    db.session.flush()
+                    
+                processed += len(batch_df)
+                logger.info(f"Imported {processed}/{total_records} records into {table_name}")
                 break
+                
             except OperationalError as e:
-                if "deadlock detected" in str(e):
+                if "deadlock detected" in str(e).lower():
                     retries += 1
-                    if retries < MAX_RETRIES:
-                        logger.warning(f"Deadlock detected, retry {retries}/{MAX_RETRIES} for {table_name}")
-                        time.sleep(RETRY_DELAY)
-                    else:
-                        logger.error(f"Max retries reached for {table_name} batch")
-                        raise
+                    logger.warning(f"Deadlock detected, retry {retries}/{MAX_RETRIES} for {table_name}")
+                    time.sleep(RETRY_DELAY * retries)  # Exponential backoff
+                    db.session.rollback()
                 else:
+                    logger.error(f"Operational error: {str(e)}")
                     raise
+            except Exception as e:
+                logger.error(f"Error importing batch: {str(e)}")
+                db.session.rollback()
+                raise
 
 def import_csv_data():
     app = create_app()
     with app.app_context():
         try:
-            # Import order: smaller tables first
-            # 1. Contacts
-            if os.path.exists('data/contacts.csv'):
-                logger.info("Starting import of contacts")
-                contacts_df = pd.read_csv('data/contacts.csv')
-                import_in_batches(
-                    contacts_df,
-                    Contacts,
-                    lambda row: Contacts(name=row['name']),
-                    'contacts'
-                )
-
-            # 2. Installed Apps
-            if os.path.exists('data/installed_apps.csv'):
-                logger.info("Starting import of installed apps")
-                apps_df = pd.read_csv('data/installed_apps.csv')
-                import_in_batches(
-                    apps_df,
-                    InstalledApps,
-                    lambda row: InstalledApps(
-                        application_name=row['application_name'],
-                        package_name=row['package_name'],
-                        install_date=datetime.strptime(row['install_date'], '%Y-%m-%d %H:%M:%S')
-                    ),
-                    'installed_apps'
-                )
-
-            # 3. Chat messages
-            if os.path.exists('data/chats.csv'):
-                logger.info("Starting import of chat messages")
-                chats_df = pd.read_csv('data/chats.csv')
-                import_in_batches(
-                    chats_df,
-                    Chat,
-                    lambda row: Chat(
-                        sender=row['sender'],
-                        text=row['text'],
-                        time=datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S')
-                    ),
-                    'chat'
-                )
-
-            # 4. SMS messages
-            if os.path.exists('data/sms.csv'):
-                logger.info("Starting import of SMS messages")
-                sms_df = pd.read_csv('data/sms.csv')
-                import_in_batches(
-                    sms_df,
-                    SMS,
-                    lambda row: SMS(
-                        from_to=row['from_to'],
-                        text=row['text'],
-                        time=datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
-                        location=row.get('location')
-                    ),
-                    'sms'
-                )
-
-            # 5. Calls
-            if os.path.exists('data/calls.csv'):
-                logger.info("Starting import of calls")
-                calls_df = pd.read_csv('data/calls.csv')
-                import_in_batches(
-                    calls_df,
-                    Calls,
-                    lambda row: Calls(
-                        call_type=row['call_type'],
-                        time=datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
-                        from_to=row['from_to'],
-                        duration=row['duration'],
-                        location=row.get('location')
-                    ),
-                    'calls'
-                )
-
-            # 6. Keylogs (last due to size and complexity)
-            if os.path.exists('data/keylogs.csv'):
-                logger.info("Starting import of keylogs")
-                keylogs_df = pd.read_csv('data/keylogs.csv')
-                import_in_batches(
-                    keylogs_df,
-                    Keylogs,
-                    lambda row: Keylogs(
-                        application=row['application'],
-                        time=datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
-                        text=row['text']
-                    ),
-                    'keylogs'
-                )
-
+            create_indexes()
+            
+            import_configs = [
+                ('data/contacts.csv', Contacts, 
+                 lambda row: {'name': row['name']}),
+                
+                ('data/installed_apps.csv', InstalledApps,
+                 lambda row: {
+                     'application_name': row['application_name'],
+                     'package_name': row['package_name'],
+                     'install_date': datetime.strptime(row['install_date'], '%Y-%m-%d %H:%M:%S')
+                 }),
+                
+                ('data/chats.csv', Chat,
+                 lambda row: {
+                     'sender': row['sender'],
+                     'text': row['text'],
+                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S')
+                 }),
+                
+                ('data/sms.csv', SMS,
+                 lambda row: {
+                     'from_to': row['from_to'],
+                     'text': row['text'],
+                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
+                     'location': row.get('location')
+                 }),
+                
+                ('data/calls.csv', Calls,
+                 lambda row: {
+                     'call_type': row['call_type'],
+                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
+                     'from_to': row['from_to'],
+                     'duration': row['duration'],
+                     'location': row.get('location')
+                 }),
+                
+                ('data/keylogs.csv', Keylogs,
+                 lambda row: {
+                     'application': row['application'],
+                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
+                     'text': row['text']
+                 })
+            ]
+            
+            for csv_file, model, transform in import_configs:
+                if os.path.exists(csv_file):
+                    logger.info(f"Starting import of {csv_file}")
+                    df = pd.read_csv(csv_file)
+                    import_in_batches(df, model, transform, model.__tablename__)
+                else:
+                    logger.warning(f"CSV file not found: {csv_file}")
+            
             logger.info("CSV import completed successfully")
+            
         except Exception as e:
             logger.error(f"Error during import process: {str(e)}")
             raise
