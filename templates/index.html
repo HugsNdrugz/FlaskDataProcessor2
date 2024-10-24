@@ -1,59 +1,46 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat Export</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messenger</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-    <!-- Contacts List Screen -->
-    <div id="contactsView" class="screen active">
-        <header class="app-header">
-            <div class="container-fluid">
-                <div class="d-flex align-items-center">
-                    <h1 class="app-title">Chat History</h1>
-                    <button type="button" class="btn btn-link ms-auto theme-toggle p-2" aria-label="Toggle theme">
-                        <i class="bi bi-moon-fill"></i>
-                    </button>
-                </div>
+    <div class="container-fluid h-100">
+        <div id="contactsView" class="view active">
+            <div class="header">
+                <h1>Messages</h1>
+                <button class="theme-toggle btn btn-link">
+                    <i class="bi bi-moon-fill"></i>
+                </button>
             </div>
-        </header>
-        
-        <div class="contacts-container">
-            {% for contact in contacts %}
-            <div class="contact-item" data-contact="{{ contact.sender }}">
-                <div class="contact-avatar">
-                    <div class="avatar-circle">{{ contact.sender[:1] | upper }}</div>
-                </div>
-                <div class="contact-info">
-                    <div class="contact-name">{{ contact.sender }}</div>
-                    <div class="contact-preview">{{ contact.text }}</div>
-                    <time class="contact-time" datetime="{{ contact.time }}">{{ contact.time }}</time>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- Chat View Screen -->
-    <div id="chatView" class="screen">
-        <header class="app-header">
-            <div class="container-fluid">
-                <div class="d-flex align-items-center">
-                    <button class="btn btn-link back-button" aria-label="Back">
-                        <i class="bi bi-arrow-left"></i>
-                    </button>
-                    <div class="chat-contact-info">
-                        <h2 class="contact-name"></h2>
+            <div class="contacts-list">
+                {% for contact in contacts %}
+                <div class="contact-item" data-contact="{{ contact.sender }}">
+                    <div class="contact-info">
+                        <span class="contact-name">{{ contact.sender }}</span>
+                        <span class="last-message">{{ contact.text }}</span>
                     </div>
+                    <span class="message-time">{{ contact.time }}</span>
                 </div>
+                {% endfor %}
             </div>
-        </header>
+        </div>
 
-        <div class="messages-container">
+        <div id="chatView" class="view">
+            <div class="header">
+                <button class="back-button btn btn-link">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <span class="contact-name"></span>
+                <button class="theme-toggle btn btn-link">
+                    <i class="bi bi-moon-fill"></i>
+                </button>
+            </div>
             <div class="messages-list"></div>
         </div>
     </div>

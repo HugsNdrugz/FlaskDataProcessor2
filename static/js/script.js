@@ -4,11 +4,24 @@ class ChatInterface {
     constructor() {
         this.currentContact = null;
         this.elements = {};
+        this.retryCount = 0;
+        this.maxRetries = 3;
+        this.socket = null;
         
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.init());
+        document.addEventListener('DOMContentLoaded', () => this.init());
+    }
+
+    handleError(error) {
+        console.error('Error:', error);
+        if (this.retryCount < this.maxRetries) {
+            this.retryCount++;
+            console.log(`Retrying (${this.retryCount}/${this.maxRetries})...`);
+            setTimeout(() => this.init(), 2000 * this.retryCount);
         } else {
-            this.init();
+            const messagesList = document.querySelector('.messages-list');
+            if (messagesList) {
+                messagesList.innerHTML = '<div class="alert alert-danger">Connection failed. Please refresh the page.</div>';
+            }
         }
     }
 
@@ -17,8 +30,9 @@ class ChatInterface {
             await this.cacheElements();
             await this.initializeTheme();
             this.bindEvents();
+            this.retryCount = 0;
         } catch (error) {
-            console.error('Error in init:', error);
+            this.handleError(error);
         }
     }
 
@@ -35,17 +49,12 @@ class ChatInterface {
         };
 
         for (const [key, selector] of Object.entries(selectors)) {
-            try {
-                this.elements[key] = key === 'contacts' 
-                    ? document.querySelectorAll(selector)
-                    : document.querySelector(selector);
-                    
-                if (!this.elements[key] && key !== 'contacts') {
-                    console.warn(`Element not found: ${selector}`);
-                }
-            } catch (error) {
-                console.warn(`Error caching element ${key}:`, error);
-                this.elements[key] = null;
+            this.elements[key] = key === 'contacts' 
+                ? document.querySelectorAll(selector)
+                : document.querySelector(selector);
+            
+            if (!this.elements[key] && key !== 'contacts') {
+                console.warn(`Element not found: ${selector}`);
             }
         }
     }
@@ -57,13 +66,8 @@ class ChatInterface {
             });
         }
 
-        if (this.elements.backButton) {
-            this.elements.backButton.addEventListener('click', () => this.handleBack());
-        }
-
-        if (this.elements.themeToggle) {
-            this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
-        }
+        this.elements.backButton?.addEventListener('click', () => this.handleBack());
+        this.elements.themeToggle?.addEventListener('click', () => this.toggleTheme());
     }
 
     async initializeTheme() {
@@ -77,20 +81,16 @@ class ChatInterface {
     }
 
     async updateThemeIcon(theme) {
-        try {
-            const iconElement = this.elements.themeIcon;
-            if (!iconElement) return;
+        const iconElement = this.elements.themeIcon;
+        if (!iconElement) return;
 
-            iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
-            iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
-        } catch (error) {
-            console.error('Error updating theme icon:', error);
-        }
+        iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
+        iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
     }
 
     async toggleTheme() {
         try {
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const currentTheme = document.documentElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
             document.documentElement.setAttribute('data-theme', newTheme);
@@ -118,12 +118,8 @@ class ChatInterface {
                 this.elements.chatContactName.textContent = contactName;
             }
 
-            if (this.elements.contactsView) {
-                this.elements.contactsView.classList.remove('active');
-            }
-            if (this.elements.chatView) {
-                this.elements.chatView.classList.add('active');
-            }
+            this.elements.contactsView?.classList.remove('active');
+            this.elements.chatView?.classList.add('active');
 
             await this.loadMessages(contact);
         } catch (error) {
@@ -132,22 +128,17 @@ class ChatInterface {
     }
 
     handleBack() {
-        try {
-            if (this.elements.chatView) {
-                this.elements.chatView.classList.remove('active');
-            }
-            if (this.elements.contactsView) {
-                this.elements.contactsView.classList.add('active');
-            }
-            this.currentContact = null;
-        } catch (error) {
-            console.error('Error handling back:', error);
-        }
+        this.elements.chatView?.classList.remove('active');
+        this.elements.contactsView?.classList.add('active');
+        this.currentContact = null;
     }
 
     async loadMessages(contact) {
         try {
-            const response = await fetch(`/messages/${contact}`);
+            const response = await fetch(`/messages/${encodeURIComponent(contact)}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const messages = await response.json();
             
             if (this.elements.messagesList) {
@@ -159,19 +150,33 @@ class ChatInterface {
             }
         } catch (error) {
             console.error('Error loading messages:', error);
+            if (this.elements.messagesList) {
+                this.elements.messagesList.innerHTML = '<div class="alert alert-danger">Failed to load messages</div>';
+            }
         }
     }
 
     createMessageBubble(message) {
-        const formattedTime = new Date(message.time).toLocaleString();
-        const bubbleClass = message.sender === this.currentContact ? 'incoming' : 'outgoing';
-        
-        return `
-            <div class="message-bubble message-bubble--${bubbleClass}">
-                <div class="message-text">${message.text || ''}</div>
-                <time class="message-time" datetime="${message.time}">${formattedTime}</time>
-            </div>
-        `.trim();
+        try {
+            const formattedTime = new Date(message.time).toLocaleString();
+            const bubbleClass = message.sender === this.currentContact ? 'incoming' : 'outgoing';
+            
+            return `
+                <div class="message-bubble message-bubble--${bubbleClass}">
+                    <div class="message-text">${this.escapeHtml(message.text || '')}</div>
+                    <time class="message-time" datetime="${message.time}">${formattedTime}</time>
+                </div>
+            `.trim();
+        } catch (error) {
+            console.error('Error creating message bubble:', error);
+            return '';
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 

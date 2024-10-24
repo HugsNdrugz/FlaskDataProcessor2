@@ -56,26 +56,17 @@ def clean_text(text):
     return str(text).strip()
 
 def parse_timestamp(time_str):
-    """Parse timestamp with better handling of February dates"""
+    """Parse timestamp with better handling"""
     if pd.isna(time_str):
         return None
         
     try:
         if isinstance(time_str, str):
-            # Handle Feb 29 cases
+            # Handle Feb 29 cases first
             if 'Feb 29' in time_str:
-                # Extract time portion
-                time_match = re.search(r'(\d{1,2}:\d{2}\s*(?:AM|PM))', time_str)
-                if time_match:
-                    time_part = time_match.group(1)
-                    # Replace with Feb 28
-                    modified_str = time_str.replace('Feb 29', 'Feb 28')
-                    try:
-                        return datetime.strptime(modified_str, '%b %d, %I:%M %p')
-                    except ValueError:
-                        logger.warning(f"Failed to parse modified date: {modified_str}")
+                time_str = time_str.replace('Feb 29', 'Feb 28')
             
-            # Try common formats
+            # Try parsing with common formats
             formats = [
                 '%b %d, %I:%M %p',
                 '%Y-%m-%d %H:%M:%S',
@@ -84,11 +75,19 @@ def parse_timestamp(time_str):
             
             for fmt in formats:
                 try:
-                    return datetime.strptime(time_str, fmt)
+                    dt = datetime.strptime(time_str, fmt)
+                    # If year is 1900, set it to 2024
+                    if dt.year == 1900:
+                        dt = dt.replace(year=2024)
+                    return dt
                 except ValueError:
                     continue
                     
-        return pd.to_datetime(time_str)
+        # Try pandas timestamp parsing as fallback
+        dt = pd.to_datetime(time_str)
+        if dt.year == 1900:
+            dt = dt.replace(year=2024)
+        return dt
         
     except Exception as e:
         logger.warning(f"Error parsing timestamp {time_str}: {str(e)}")

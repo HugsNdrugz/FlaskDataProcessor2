@@ -11,3 +11,8 @@ cachetools
 openpyxl
 python-dotenv
 nicegui==2.4.0
+flask-socketio
+eventlet
+gunicorn
+python-socketio
+simple-websocket
