@@ -10,11 +10,10 @@ def index():
     # Query to get latest message for each contact from chats table
     query = text("""
         SELECT DISTINCT ON (sender) 
-            sender as contact,
+            sender,
             time,
             text
         FROM chat
-        WHERE sender != 'You'
         ORDER BY sender, time DESC
     """)
     
@@ -22,7 +21,7 @@ def index():
         result = db.session.execute(query)
         contacts = [
             {
-                'sender': row.contact,
+                'sender': row.sender,
                 'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
                 'text': row.text
             }
@@ -37,16 +36,12 @@ def index():
 def get_messages(contact):
     query = text("""
         SELECT 
-            c.sender,
-            c.time,
-            c.text,
-            CASE 
-                WHEN c.sender = :contact THEN false
-                ELSE true
-            END as is_outgoing
-        FROM chat c
-        WHERE c.sender = :contact OR c.sender = 'You'
-        ORDER BY c.time ASC
+            sender,
+            time,
+            text
+        FROM chat 
+        WHERE sender = :contact
+        ORDER BY time ASC
     """)
     
     try:
@@ -55,8 +50,7 @@ def get_messages(contact):
             {
                 'sender': row.sender,
                 'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
-                'text': row.text,
-                'is_outgoing': row.is_outgoing
+                'text': row.text
             }
             for row in result
         ]

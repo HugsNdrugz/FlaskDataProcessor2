@@ -161,10 +161,8 @@ class ChatInterface {
     }
 
     createMessageBubble(message) {
-        const bubbleClass = message.is_outgoing ? 'message-bubble--outgoing' : 'message-bubble--incoming';
-        
         return `
-            <div class="message-bubble ${bubbleClass}">
+            <div class="message-bubble message-bubble--incoming">
                 <div class="message-text">${message.text}</div>
                 <time class="message-time" datetime="${message.time}">${message.time}</time>
             </div>
