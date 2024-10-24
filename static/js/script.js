@@ -54,7 +54,7 @@ class ChatInterface {
 
     bindEvents() {
         if (this.elements.contacts?.length) {
-            Array.from(this.elements.contacts).forEach(contact => {
+            this.elements.contacts.forEach(contact => {
                 contact?.addEventListener('click', (e) => this.handleContactClick(e));
             });
         }
@@ -161,25 +161,28 @@ class ChatInterface {
     }
 
     createMessageBubble(message) {
+        const formattedTime = new Date(message.time).toLocaleString();
         return `
             <div class="message-bubble message-bubble--incoming">
                 <div class="message-text">${message.text}</div>
-                <time class="message-time" datetime="${message.time}">${message.time}</time>
+                <time class="message-time" datetime="${message.time}">${formattedTime}</time>
             </div>
         `;
     }
 }
 
-const initChatInterface = () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            window.chatInterface = new ChatInterface();
+        } catch (error) {
+            console.error('Error creating ChatInterface:', error);
+        }
+    });
+} else {
     try {
         window.chatInterface = new ChatInterface();
     } catch (error) {
         console.error('Error creating ChatInterface:', error);
     }
-};
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initChatInterface);
-} else {
-    initChatInterface();
 }

@@ -1,7 +1,11 @@
 from flask import Blueprint, render_template, jsonify
 from sqlalchemy import text
 from models import db
-from datetime import datetime
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 routes = Blueprint('routes', __name__)
 
@@ -14,6 +18,7 @@ def index():
             time,
             text
         FROM chat
+        WHERE sender IS NOT NULL
         ORDER BY sender, time DESC
     ''')
     
@@ -29,7 +34,7 @@ def index():
         ]
         return render_template('index.html', contacts=contacts)
     except Exception as e:
-        print(f"Database error: {str(e)}")
+        logger.error(f"Database error in index route: {str(e)}")
         return render_template('index.html', contacts=[])
 
 @routes.route('/messages/<contact>')
@@ -56,5 +61,5 @@ def get_messages(contact):
         ]
         return jsonify(messages)
     except Exception as e:
-        print(f"Database error: {str(e)}")
+        logger.error(f"Database error in get_messages route: {str(e)}")
         return jsonify([])
