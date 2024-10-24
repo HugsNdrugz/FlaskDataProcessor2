@@ -14,18 +14,21 @@ def insert_test_data():
             with conn.cursor() as cur:
                 # Sample chat messages
                 messages = [
-                    ('John Doe', 'Hello there!', datetime.now() - timedelta(hours=2)),
-                    ('Alice Smith', 'Hi! How are you?', datetime.now() - timedelta(hours=1)),
-                    ('John Doe', 'I am doing great!', datetime.now() - timedelta(minutes=45)),
-                    ('Bob Wilson', 'Meeting at 3?', datetime.now() - timedelta(minutes=30)),
-                    ('Alice Smith', 'Yes, that works!', datetime.now() - timedelta(minutes=15))
+                    ('John Doe', 'user', 'Hello there!', datetime.now() - timedelta(hours=2)),
+                    ('Alice Smith', 'user', 'Hi! How are you?', datetime.now() - timedelta(hours=1)),
+                    ('user', 'John Doe', 'I am doing great!', datetime.now() - timedelta(minutes=45)),
+                    ('Bob Wilson', 'user', 'Meeting at 3?', datetime.now() - timedelta(minutes=30)),
+                    ('user', 'Alice Smith', 'Yes, that works!', datetime.now() - timedelta(minutes=15))
                 ]
                 
                 # Insert messages using a single statement
-                for sender, text, time in messages:
+                for sender, recipient, text, time in messages:
                     cur.execute(
-                        "INSERT INTO chats (sender, text, time) VALUES (%s, %s, %s)",
-                        (sender, text, time)
+                        """
+                        INSERT INTO chats (sender, recipient, text, time)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (sender, recipient, text, time)
                     )
                 
                 logger.info("Test data inserted successfully!")

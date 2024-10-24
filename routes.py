@@ -39,18 +39,22 @@ def handle_errors(f):
 @routes.route('/')
 @handle_errors
 def index():
-    """Get all contacts with their latest messages using prepared statement"""
+    """Get all contacts with their latest messages"""
     query = """
         WITH RankedMessages AS (
             SELECT 
-                sender,
-                time,
-                text,
-                ROW_NUMBER() OVER (PARTITION BY sender ORDER BY time DESC) as rn
-            FROM chats
-            WHERE sender IS NOT NULL
+                c.sender,
+                c.recipient,
+                c.time,
+                c.text,
+                ROW_NUMBER() OVER (PARTITION BY CASE 
+                    WHEN c.sender = 'user' THEN c.recipient 
+                    ELSE c.sender 
+                END ORDER BY c.time DESC) as rn
+            FROM chats c
+            WHERE c.sender IS NOT NULL
         )
-        SELECT sender, time, text
+        SELECT sender, recipient, time, text
         FROM RankedMessages
         WHERE rn = 1
         ORDER BY time DESC
@@ -61,14 +65,14 @@ def index():
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
                 cur.execute(query)
                 rows = cur.fetchall()
-                contacts = [
-                    {
-                        'sender': row['sender'],
+                contacts = []
+                for row in rows:
+                    contact_name = row['recipient'] if row['sender'] == 'user' else row['sender']
+                    contacts.append({
+                        'sender': contact_name,
                         'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
                         'text': row['text']
-                    }
-                    for row in rows
-                ]
+                    })
                 return render_template('index.html', contacts=contacts)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
@@ -77,7 +81,7 @@ def index():
 @routes.route('/messages/<contact>')
 @handle_errors
 def get_messages(contact):
-    """Get all messages for a specific contact using prepared statement"""
+    """Get all messages for a specific contact"""
     if not contact or not isinstance(contact, str) or len(contact) > 100:
         raise BadRequest('Invalid contact parameter')
     
@@ -86,16 +90,17 @@ def get_messages(contact):
         return jsonify(messages_cache[cache_key])
     
     query = """
-        SELECT sender, text, time
+        SELECT sender, recipient, text, time
         FROM chats 
-        WHERE sender = %s
+        WHERE (sender = %s AND recipient = 'user')
+           OR (sender = 'user' AND recipient = %s)
         ORDER BY time ASC
     """
     
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                cur.execute(query, (contact,))
+                cur.execute(query, (contact, contact))
                 rows = cur.fetchall()
                 messages = [
                     {

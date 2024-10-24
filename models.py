@@ -54,6 +54,15 @@ def test_db_connection():
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT 1')
+                # Check if tables exist
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'chats'
+                    )
+                """)
+                chats_exists = cur.fetchone()[0]
+                logger.info(f"Chats table exists: {chats_exists}")
             logger.info("Database connection test successful!")
             return True
     except Exception as e:
@@ -65,29 +74,41 @@ def init_db():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                # Create chats table
+                # Drop existing tables if they exist
                 cur.execute("""
-                    CREATE TABLE IF NOT EXISTS chats (
-                        chat_id SERIAL PRIMARY KEY,
-                        messenger VARCHAR(100),
-                        time TIMESTAMP NOT NULL,
-                        sender VARCHAR(100) NOT NULL,
-                        text TEXT NOT NULL
+                    DROP TABLE IF EXISTS chats CASCADE;
+                """)
+                
+                # Create chats table with correct schema
+                cur.execute("""
+                    CREATE TABLE chats (
+                        id SERIAL PRIMARY KEY,
+                        sender VARCHAR(255) NOT NULL,
+                        recipient VARCHAR(255) NOT NULL,
+                        text TEXT NOT NULL,
+                        time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        type VARCHAR(50) DEFAULT 'message',
+                        status VARCHAR(20) DEFAULT 'sent',
+                        messenger VARCHAR(100) DEFAULT 'default',
+                        CONSTRAINT valid_participants CHECK (
+                            sender != recipient AND 
+                            (sender = 'user' OR recipient = 'user')
+                        )
                     )
                 """)
                 
                 # Create indexes for better performance
                 cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_chats_sender_hash 
-                    ON chats USING hash (sender)
+                    CREATE INDEX IF NOT EXISTS idx_chats_sender_recipient 
+                    ON chats(sender, recipient)
                 """)
                 cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_chats_time_brin 
-                    ON chats USING brin (time)
+                    CREATE INDEX IF NOT EXISTS idx_chats_time 
+                    ON chats(time DESC)
                 """)
                 cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_chats_sender_time_btree
-                    ON chats USING btree (sender, time)
+                    CREATE INDEX IF NOT EXISTS idx_chats_type 
+                    ON chats(type)
                 """)
                 
             logger.info("Database initialized successfully")
