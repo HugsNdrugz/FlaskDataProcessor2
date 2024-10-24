@@ -1,16 +1,13 @@
-from flask import Blueprint, render_template, jsonify, request, current_app
-from sqlalchemy import text
-from models import db, Chat, get_db_connection
+from flask import Blueprint, render_template, jsonify, request
 import logging
 from functools import wraps
 from datetime import datetime
-import time
 from werkzeug.exceptions import BadRequest
 from cachetools import TTLCache
-from sqlalchemy.exc import SQLAlchemyError
 import psycopg2.extras
+from models import get_db_connection
 
-# Configure logging with more detailed format
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
@@ -31,7 +28,7 @@ def handle_errors(f):
         except BadRequest as e:
             logger.warning(f"Bad request: {str(e)}")
             return jsonify({'error': str(e)}), 400
-        except SQLAlchemyError as e:
+        except psycopg2.Error as e:
             logger.error(f"Database error: {str(e)}")
             return jsonify({'error': 'Database error occurred'}), 500
         except Exception as e:
