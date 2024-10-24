@@ -1,12 +1,21 @@
 :root {
     --header-height: 60px;
     --transition-duration: 300ms;
+    --bg-color: #fff;
+    --text-color: #333;
+    --accent-color: #007bff;
+}
+
+[data-theme="dark"] {
+    --bg-color: #222;
+    --text-color: #eee;
 }
 
 /* Base styles */
 body {
     overflow: hidden;
-    background-color: var(--bs-body-bg);
+    background-color: var(--bg-color);
+    color: var(--text-color);
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -17,7 +26,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: var(--bs-body-bg);
+    background-color: var(--bg-color);
     transition: transform var(--transition-duration) ease-in-out;
     display: flex;
     flex-direction: column;
@@ -34,7 +43,7 @@ body {
 .app-header {
     height: var(--header-height);
     border-bottom: 1px solid var(--bs-border-color);
-    background-color: var(--bs-body-bg);
+    background-color: var(--bg-color);
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -45,6 +54,7 @@ body {
     font-size: 1.25rem;
     margin: 0;
     font-weight: 600;
+    color: var(--text-color);
 }
 
 /* Contacts list styles */
@@ -78,7 +88,7 @@ body {
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background-color: var(--bs-primary);
+    background-color: var(--accent-color);
     color: white;
     display: flex;
     align-items: center;
@@ -100,6 +110,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-color);
 }
 
 .contact-preview {
@@ -124,7 +135,7 @@ body {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 1rem;
-    background-color: var(--bs-tertiary-bg);
+    background-color: var(--bg-color);
 }
 
 .messages-list {
@@ -149,7 +160,7 @@ body {
 
 .message-bubble--outgoing {
     align-self: flex-end;
-    background-color: var(--bs-primary);
+    background-color: var(--accent-color);
     color: white;
     border-bottom-right-radius: 0.25rem;
 }
@@ -171,7 +182,7 @@ body {
 .message-input {
     border-top: 1px solid var(--bs-border-color);
     padding: 0.75rem 0;
-    background-color: var(--bs-body-bg);
+    background-color: var(--bg-color);
 }
 
 .message-form {
@@ -182,11 +193,11 @@ body {
 .back-button {
     padding: 0.5rem;
     margin-right: 0.5rem;
-    color: var(--bs-primary);
+    color: var(--accent-color);
 }
 
 .theme-toggle {
-    color: var(--bs-primary);
+    color: var(--accent-color);
 }
 
 /* Media queries */

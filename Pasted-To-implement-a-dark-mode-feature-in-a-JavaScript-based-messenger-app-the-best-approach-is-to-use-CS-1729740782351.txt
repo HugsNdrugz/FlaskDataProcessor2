@@ -1,0 +1,76 @@
+To implement a dark mode feature in a JavaScript-based messenger app, the best approach is to use CSS variables, a dedicated theme class, and a JavaScript function to toggle between light and dark themes, storing user preference in local storage to persist the choice across sessions; this allows for easy styling updates and a smooth user experience. [1, 2, 3]
+
+
+Key steps:
+
+Set up CSS variables:
+Define your primary colors (background, text, accents) as CSS variables for both light and dark themes in your stylesheet.
+Example:
+
+    :root {
+
+        --bg-color: #fff; /* Light theme background */
+
+        --text-color: #333; /* Light theme text color */
+
+        --accent-color: #007bff; /* Accent color */
+
+    }
+
+
+
+    /* Dark Theme Variables */
+
+    [data-theme="dark"] {
+
+        --bg-color: #222;
+
+        --text-color: #eee;
+
+    }
+
+
+Create a theme toggle button:
+Add a button in your HTML to trigger the theme change.
+Assign a data-theme attribute to the button to identify its function.
+
+
+JavaScript to handle theme switching:
+Get the current theme from local storage (if available) on page load.
+Add an event listener to the toggle button.
+When clicked, update the data-theme attribute on the <html> tag to switch between "light" and "dark".
+Update the local storage with the new theme preference.
+
+Example code snippet:
+
+
+const themeToggle = document.getElementById('theme-toggle');
+
+
+
+function toggleTheme() {
+
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    document.documentElement.setAttribute('data-theme', newTheme);
+
+    localStorage.setItem('theme', newTheme);
+
+}
+
+
+
+themeToggle.addEventListener('click', toggleTheme);
+
+
+
+Generative AI is experimental.
+
+
+[1] https://dev.to/whitep4nth3r/the-best-lightdark-mode-theme-toggle-in-javascript-368f
+
+[2] https://www.frontendmentor.io/solutions/-chat-app-illustration-with-html-css-js-darklight-theme-atJQ3o0KpM
+
+[3] https://www.delasign.com/blog/android-studio-kotlin-light-dark-mode/

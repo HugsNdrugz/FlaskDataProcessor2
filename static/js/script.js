@@ -6,7 +6,6 @@ class ChatInterface {
         this.elements = {};
         this.periodicUpdates = null;
         
-        // Defer initialization to when DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
@@ -58,14 +57,12 @@ class ChatInterface {
     }
 
     bindEvents() {
-        // Bind contact click events
         if (this.elements.contacts?.length) {
             Array.from(this.elements.contacts).forEach(contact => {
                 contact?.addEventListener('click', (e) => this.handleContactClick(e));
             });
         }
 
-        // Bind other UI events
         if (this.elements.backButton) {
             this.elements.backButton.addEventListener('click', () => this.handleBack());
         }
@@ -85,8 +82,8 @@ class ChatInterface {
             const html = document.documentElement;
             
             if (html) {
-                html.setAttribute('data-bs-theme', savedTheme);
-                this.updateThemeIcon(savedTheme);
+                html.setAttribute('data-theme', savedTheme);
+                await this.updateThemeIcon(savedTheme);
             }
         } catch (error) {
             console.error('Error initializing theme:', error);
@@ -110,12 +107,12 @@ class ChatInterface {
             const html = document.documentElement;
             if (!html) return;
 
-            const currentTheme = html.getAttribute('data-bs-theme') || 'dark';
+            const currentTheme = html.getAttribute('data-theme') || 'dark';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
-            html.setAttribute('data-bs-theme', newTheme);
+            html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            this.updateThemeIcon(newTheme);
+            await this.updateThemeIcon(newTheme);
         } catch (error) {
             console.error('Error toggling theme:', error);
         }
@@ -157,119 +154,12 @@ class ChatInterface {
         }
     }
 
-    async loadMessages(contact) {
-        try {
-            const response = await fetch(`/messages/${contact}`);
-            if (!response.ok) throw new Error('Failed to fetch messages');
-            
-            const messages = await response.json();
-            this.renderMessages(messages);
-        } catch (error) {
-            console.error('Error loading messages:', error);
-        }
-    }
-
-    renderMessages(messages) {
-        if (!this.elements.messagesList) return;
-
-        this.elements.messagesList.innerHTML = messages
-            .map(msg => this.createMessageElement(msg))
-            .join('');
-
-        this.scrollToBottom();
-    }
-
-    createMessageElement(message) {
-        const isOutgoing = message.sender === 'You';
-        const time = this.formatTime(new Date(message.time));
-        
-        return `
-            <div class="message-bubble message-bubble--${isOutgoing ? 'outgoing' : 'incoming'}">
-                <div class="message-content">${message.text}</div>
-                <time class="message-time" datetime="${message.time}">${time}</time>
-                ${message.location ? `<div class="message-location">📍 ${message.location}</div>` : ''}
-            </div>
-        `;
-    }
-
-    async handleMessageSubmit(event) {
-        event.preventDefault();
-        
-        if (!this.currentContact || !this.elements.messageInput) return;
-
-        const messageText = this.elements.messageInput.value.trim();
-        if (!messageText) return;
-
-        try {
-            const response = await fetch('/messages/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contact: this.currentContact,
-                    message: messageText
-                })
-            });
-
-            if (!response.ok) throw new Error('Failed to send message');
-
-            this.elements.messageInput.value = '';
-            await this.loadMessages(this.currentContact);
-        } catch (error) {
-            console.error('Error sending message:', error);
-        }
-    }
-
-    formatTime(date) {
-        if (!date || isNaN(date.getTime())) return '';
-        
-        const now = new Date();
-        const diff = now - date;
-        const minutes = Math.floor(diff / 60000);
-
-        if (minutes < 1) return 'Just now';
-        if (minutes < 60) return `${minutes}m ago`;
-        if (minutes < 1440) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (minutes < 10080) return date.toLocaleDateString([], { weekday: 'short' });
-        return date.toLocaleDateString();
-    }
-
-    scrollToBottom() {
-        if (this.elements.messagesList) {
-            this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
-        }
-    }
-
     startPeriodicUpdates() {
-        // Update message times every minute
-        const updateTimeInterval = setInterval(() => {
-            try {
-                document.querySelectorAll('.message-time').forEach(timeElement => {
-                    const datetime = timeElement.getAttribute('datetime');
-                    if (datetime) {
-                        timeElement.textContent = this.formatTime(new Date(datetime));
-                    }
-                });
-            } catch (error) {
-                console.error('Error updating message times:', error);
-            }
-        }, 60000);
-
-        // Refresh messages every 30 seconds if chat is open
-        const refreshMessagesInterval = setInterval(() => {
-            try {
-                if (this.currentContact) {
-                    this.loadMessages(this.currentContact);
-                }
-            } catch (error) {
-                console.error('Error refreshing messages:', error);
-            }
-        }, 30000);
-
-        // Store intervals for cleanup if needed
-        this.periodicUpdates = {
-            updateTime: updateTimeInterval,
-            refreshMessages: refreshMessagesInterval
-        };
+        if (this.currentContact) {
+            setInterval(() => {
+                this.loadMessages(this.currentContact);
+            }, 30000);
+        }
     }
 }
 

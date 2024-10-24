@@ -25,11 +25,11 @@ args = "Init DB"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Flask Server"
+args = "Import CSV"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Import CSV"
+args = "Flask Server"
 
 [[workflows.workflow]]
 name = "Start Flask App"
@@ -66,18 +66,6 @@ task = "shell.exec"
 args = "python3 init_db.py"
 
 [[workflows.workflow]]
-name = "Flask Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 main.py"
-waitForPort = 5000
-
-[[workflows.workflow]]
 name = "Import CSV"
 author = "agent"
 
@@ -87,6 +75,18 @@ agentRequireRestartOnSave = false
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 import_csv.py"
+
+[[workflows.workflow]]
+name = "Flask Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 app.py"
+waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "python3 app.py"]
