@@ -91,6 +91,27 @@ class Messages(db.Model):
     def __repr__(self):
         return f'<Message {self.sender} to {self.recipient}: {self.message[:50]}>'
 
+class Chat(db.Model):
+    """Chat model with optimized indexes"""
+    __tablename__ = 'chat'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    sender = db.Column(db.String(100), nullable=False, index=True)
+    text = db.Column(db.Text, nullable=False)
+    time = db.Column(db.DateTime, nullable=False, index=True)
+    
+    __table_args__ = (
+        Index('idx_sender_time', 'sender', 'time'),
+    )
+
+    def __init__(self, sender, text, time=None):
+        self.sender = sender
+        self.text = text
+        self.time = time or datetime.utcnow()
+
+    def __repr__(self):
+        return f'<Chat {self.sender}: {self.text[:50]}>'
+
 def init_db_settings(app):
     """Initialize database settings with production configuration"""
     with app.app_context():

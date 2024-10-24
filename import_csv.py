@@ -44,6 +44,26 @@ def create_indexes():
         logger.error(f"Error creating indexes: {str(e)}")
         raise
 
+def import_excel_data():
+    """Import data from Excel file"""
+    try:
+        df = pd.read_excel('chatex.xlsx')
+        
+        # Convert DataFrame to chat records
+        for _, row in df.iterrows():
+            chat = Chat(
+                sender=row['sender'],
+                text=row['text'],
+                time=pd.to_datetime(row['time'])
+            )
+            db.session.add(chat)
+        
+        db.session.commit()
+        logger.info("Excel data imported successfully")
+    except Exception as e:
+        logger.error(f"Error importing Excel data: {str(e)}")
+        db.session.rollback()
+
 @contextmanager
 def transaction_scope():
     """Provide a transactional scope with proper isolation level"""
@@ -101,72 +121,13 @@ def import_in_batches(df, model_class, transform_func, table_name):
                 db.session.rollback()
                 raise
 
-def import_csv_data():
-    app = create_app()
-    with app.app_context():
-        try:
-            create_indexes()
-            
-            import_configs = [
-                ('data/contacts.csv', Contacts, 
-                 lambda row: {'name': row['name']}),
-                
-                ('data/installed_apps.csv', InstalledApps,
-                 lambda row: {
-                     'application_name': row['application_name'],
-                     'package_name': row['package_name'],
-                     'install_date': datetime.strptime(row['install_date'], '%Y-%m-%d %H:%M:%S')
-                 }),
-                
-                ('data/chats.csv', Chat,
-                 lambda row: {
-                     'sender': row['sender'],
-                     'text': row['text'],
-                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S')
-                 }),
-                
-                ('data/sms.csv', SMS,
-                 lambda row: {
-                     'from_to': row['from_to'],
-                     'text': row['text'],
-                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
-                     'location': row.get('location')
-                 }),
-                
-                ('data/calls.csv', Calls,
-                 lambda row: {
-                     'call_type': row['call_type'],
-                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
-                     'from_to': row['from_to'],
-                     'duration': row['duration'],
-                     'location': row.get('location')
-                 }),
-                
-                ('data/keylogs.csv', Keylogs,
-                 lambda row: {
-                     'application': row['application'],
-                     'time': datetime.strptime(row['time'], '%Y-%m-%d %H:%M:%S'),
-                     'text': row['text']
-                 })
-            ]
-            
-            for csv_file, model, transform in import_configs:
-                if os.path.exists(csv_file):
-                    logger.info(f"Starting import of {csv_file}")
-                    df = pd.read_csv(csv_file)
-                    import_in_batches(df, model, transform, model.__tablename__)
-                else:
-                    logger.warning(f"CSV file not found: {csv_file}")
-            
-            logger.info("CSV import completed successfully")
-            
-        except Exception as e:
-            logger.error(f"Error during import process: {str(e)}")
-            raise
-
 if __name__ == '__main__':
     try:
-        import_csv_data()
+        app = create_app()
+        with app.app_context():
+            create_indexes()
+            import_excel_data()
+            logger.info("Import process completed successfully")
     except Exception as e:
         logger.error(f"Import failed: {str(e)}")
         exit(1)

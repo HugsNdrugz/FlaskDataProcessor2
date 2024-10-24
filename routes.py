@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request, current_app
 from sqlalchemy import text
-from models import db, Messages, get_db_connection
+from models import db, Messages, Chat, get_db_connection
 import logging
 from functools import wraps
 from datetime import datetime
@@ -44,15 +44,13 @@ def handle_errors(f):
 def index():
     """Get all contacts with their latest messages"""
     query = """
-        SELECT DISTINCT ON (m.sender) 
-            m.sender,
-            m.timestamp as time,
-            m.message as text,
-            COUNT(CASE WHEN m.is_read = false AND m.recipient = 'user' THEN 1 END) as unread_count
-        FROM messages m
-        WHERE m.sender IS NOT NULL
-        GROUP BY m.sender, m.timestamp, m.message
-        ORDER BY m.sender, m.timestamp DESC
+        SELECT DISTINCT ON (sender) 
+            sender,
+            time,
+            text
+        FROM chat
+        WHERE sender IS NOT NULL
+        ORDER BY sender, time DESC
     """
     
     try:
@@ -64,8 +62,7 @@ def index():
                 {
                     'sender': row['sender'],
                     'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                    'text': row['text'],
-                    'unread': row['unread_count']
+                    'text': row['text']
                 }
                 for row in rows
             ]
@@ -95,49 +92,31 @@ def get_messages(contact):
     query = """
         SELECT 
             sender,
-            recipient,
-            message as text,
-            timestamp as time,
-            is_read
-        FROM messages 
-        WHERE (sender = %s AND recipient = 'user')
-           OR (sender = 'user' AND recipient = %s)
-        ORDER BY timestamp ASC
+            text,
+            time
+        FROM chat 
+        WHERE sender = %s
+        ORDER BY time ASC
     """
     
     try:
         conn = get_db_connection()
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(query, (contact, contact))
+            cur.execute(query, (contact,))
             rows = cur.fetchall()
             messages = [
                 {
                     'sender': row['sender'],
-                    'recipient': row['recipient'],
                     'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                    'text': row['text'],
-                    'is_read': row['is_read']
+                    'text': row['text']
                 }
                 for row in rows
             ]
-            
-            # Mark messages as read
-            update_query = """
-                UPDATE messages 
-                SET is_read = true 
-                WHERE sender = %s 
-                AND recipient = 'user' 
-                AND is_read = false
-            """
-            cur.execute(update_query, (contact,))
-            conn.commit()
             
             messages_cache[cache_key] = messages
             return jsonify(messages)
     except Exception as e:
         logger.error(f"Error in get_messages route: {str(e)}")
-        if 'conn' in locals():
-            conn.rollback()
         return jsonify([])
     finally:
         if 'conn' in locals():
