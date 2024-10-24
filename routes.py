@@ -1,13 +1,14 @@
 from flask import Blueprint, render_template, jsonify, request, current_app
 from sqlalchemy import text
-from models import db, Messages
+from models import db, Messages, get_db_connection
 import logging
 from functools import wraps
 from datetime import datetime
 import time
 from werkzeug.exceptions import BadRequest
-from cachetools import TTLCache, cached
+from cachetools import TTLCache
 from sqlalchemy.exc import SQLAlchemyError
+import psycopg2.extras
 
 # Configure logging with more detailed format
 logging.basicConfig(
@@ -55,20 +56,30 @@ def index():
     """
     
     try:
-        result = db.session.execute(text(query))
-        contacts = [
-            {
-                'sender': row.sender,
-                'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
-                'text': row.text,
-                'unread': row.unread_count
-            }
-            for row in result
-        ]
-        return render_template('index.html', contacts=contacts)
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(query)
+            rows = cur.fetchall()
+            contacts = [
+                {
+                    'sender': row['sender'],
+                    'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                    'text': row['text'],
+                    'unread': row['unread_count']
+                }
+                for row in rows
+            ]
+            return render_template('index.html', contacts=contacts)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
         return render_template('index.html', contacts=[])
+    finally:
+        if 'conn' in locals():
+            try:
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.error(f"Error closing connection: {str(e)}")
 
 @routes.route('/messages/<contact>')
 @handle_errors
@@ -89,48 +100,59 @@ def get_messages(contact):
             timestamp as time,
             is_read
         FROM messages 
-        WHERE (sender = :contact AND recipient = 'user')
-           OR (sender = 'user' AND recipient = :contact)
+        WHERE (sender = %s AND recipient = 'user')
+           OR (sender = 'user' AND recipient = %s)
         ORDER BY timestamp ASC
     """
     
     try:
-        result = db.session.execute(text(query), {'contact': contact})
-        messages = [
-            {
-                'sender': row.sender,
-                'recipient': row.recipient,
-                'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
-                'text': row.text,
-                'is_read': row.is_read
-            }
-            for row in result
-        ]
-        
-        # Mark messages as read
-        db.session.execute(
-            text("""
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(query, (contact, contact))
+            rows = cur.fetchall()
+            messages = [
+                {
+                    'sender': row['sender'],
+                    'recipient': row['recipient'],
+                    'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                    'text': row['text'],
+                    'is_read': row['is_read']
+                }
+                for row in rows
+            ]
+            
+            # Mark messages as read
+            update_query = """
                 UPDATE messages 
                 SET is_read = true 
-                WHERE sender = :contact 
+                WHERE sender = %s 
                 AND recipient = 'user' 
                 AND is_read = false
-            """),
-            {'contact': contact}
-        )
-        db.session.commit()
-        
-        messages_cache[cache_key] = messages
-        return jsonify(messages)
+            """
+            cur.execute(update_query, (contact,))
+            conn.commit()
+            
+            messages_cache[cache_key] = messages
+            return jsonify(messages)
     except Exception as e:
         logger.error(f"Error in get_messages route: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
         return jsonify([])
+    finally:
+        if 'conn' in locals():
+            try:
+                conn.close()
+            except Exception as e:
+                logger.error(f"Error closing connection: {str(e)}")
 
-# Health check endpoint
 @routes.route('/health')
 def health_check():
     try:
-        db.session.execute(text('SELECT 1'))
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute('SELECT 1')
+        conn.close()
         return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow()})
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
