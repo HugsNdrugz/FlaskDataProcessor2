@@ -7,15 +7,15 @@ routes = Blueprint('routes', __name__)
 
 @routes.route('/')
 def index():
-    # Query to get latest message for each contact from chats table
-    query = text("""
+    # Get latest message for each sender
+    query = text('''
         SELECT DISTINCT ON (sender) 
             sender,
             time,
             text
         FROM chat
         ORDER BY sender, time DESC
-    """)
+    ''')
     
     try:
         result = db.session.execute(query)
@@ -34,7 +34,7 @@ def index():
 
 @routes.route('/messages/<contact>')
 def get_messages(contact):
-    query = text("""
+    query = text('''
         SELECT 
             sender,
             time,
@@ -42,7 +42,7 @@ def get_messages(contact):
         FROM chat 
         WHERE sender = :contact
         ORDER BY time ASC
-    """)
+    ''')
     
     try:
         result = db.session.execute(query, {'contact': contact})
