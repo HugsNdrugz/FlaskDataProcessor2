@@ -81,12 +81,12 @@ class ChatInterface {
 
     async initializeTheme() {
         try {
-            const savedTheme = localStorage.getItem('theme') ?? 'dark';
+            const savedTheme = localStorage.getItem('theme') || 'dark';
             const html = document.documentElement;
             
             if (html) {
                 html.setAttribute('data-bs-theme', savedTheme);
-                await this.updateThemeIcon(savedTheme);
+                this.updateThemeIcon(savedTheme);
             }
         } catch (error) {
             console.error('Error initializing theme:', error);
@@ -110,12 +110,12 @@ class ChatInterface {
             const html = document.documentElement;
             if (!html) return;
 
-            const currentTheme = html.getAttribute('data-bs-theme') ?? 'dark';
+            const currentTheme = html.getAttribute('data-bs-theme') || 'dark';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
             html.setAttribute('data-bs-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            await this.updateThemeIcon(newTheme);
+            this.updateThemeIcon(newTheme);
         } catch (error) {
             console.error('Error toggling theme:', error);
         }
