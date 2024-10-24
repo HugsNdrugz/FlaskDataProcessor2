@@ -1,143 +1,190 @@
-// Theme management
-const THEME_KEY = 'messenger_theme';
-const DARK_THEME = 'dark';
-const LIGHT_THEME = 'light';
+'use strict';
 
-// Initialize theme on page load
-document.addEventListener('DOMContentLoaded', () => {
-    initializeTheme();
-    setupMessageHandling();
-});
-
-function initializeTheme() {
-    const savedTheme = localStorage.getItem(THEME_KEY) || DARK_THEME;
-    applyTheme(savedTheme);
-    
-    // Setup theme toggle button
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = localStorage.getItem(THEME_KEY) || DARK_THEME;
-            const newTheme = currentTheme === DARK_THEME ? LIGHT_THEME : DARK_THEME;
-            applyTheme(newTheme);
-        });
+class ChatInterface {
+    constructor() {
+        this.currentContact = null;
+        this.elements = {};
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.init());
+        } else {
+            this.init();
+        }
     }
-}
 
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-bs-theme', theme);
-    localStorage.setItem(THEME_KEY, theme);
-    
-    // Update toggle button text/icon if it exists
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.innerHTML = theme === DARK_THEME ? 
-            '<i class="bi bi-sun"></i> Light Mode' : 
-            '<i class="bi bi-moon"></i> Dark Mode';
+    async init() {
+        try {
+            await this.cacheElements();
+            await this.initializeTheme();
+            this.bindEvents();
+        } catch (error) {
+            console.error('Error in init:', error);
+        }
     }
-}
 
-function setupMessageHandling() {
-    const messageForm = document.getElementById('messageForm');
-    if (messageForm) {
-        messageForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const messageInput = document.getElementById('messageInput');
-            if (messageInput && messageInput.value.trim()) {
-                sendMessage(messageInput.value);
-                messageInput.value = '';
+    async cacheElements() {
+        const selectors = {
+            contactsView: '#contactsView',
+            chatView: '#chatView',
+            contacts: '.contact-item',
+            backButton: '.back-button',
+            themeToggle: '.theme-toggle',
+            themeIcon: '.theme-toggle i',
+            messagesList: '.messages-list',
+            chatContactName: '#chatView .contact-name'
+        };
+
+        for (const [key, selector] of Object.entries(selectors)) {
+            try {
+                this.elements[key] = key === 'contacts' 
+                    ? document.querySelectorAll(selector)
+                    : document.querySelector(selector);
+                    
+                if (!this.elements[key] && key !== 'contacts') {
+                    console.warn(`Element not found: ${selector}`);
+                }
+            } catch (error) {
+                console.warn(`Error caching element ${key}:`, error);
+                this.elements[key] = null;
             }
-        });
+        }
     }
-}
 
-function sendMessage(message) {
-    try {
-        const messageContainer = document.getElementById('messages');
-        if (!messageContainer) return;
+    bindEvents() {
+        if (this.elements.contacts?.length) {
+            this.elements.contacts.forEach(contact => {
+                contact?.addEventListener('click', (e) => this.handleContactClick(e));
+            });
+        }
 
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message sent';
-        messageElement.innerHTML = `
-            <div class="message-content">
-                <p>${escapeHtml(message)}</p>
-                <small class="timestamp">${new Date().toLocaleTimeString()}</small>
+        if (this.elements.backButton) {
+            this.elements.backButton.addEventListener('click', () => this.handleBack());
+        }
+
+        if (this.elements.themeToggle) {
+            this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
+    }
+
+    async initializeTheme() {
+        try {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            await this.updateThemeIcon(savedTheme);
+        } catch (error) {
+            console.error('Error initializing theme:', error);
+        }
+    }
+
+    async updateThemeIcon(theme) {
+        try {
+            const iconElement = this.elements.themeIcon;
+            if (!iconElement) return;
+
+            iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
+            iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
+        } catch (error) {
+            console.error('Error updating theme icon:', error);
+        }
+    }
+
+    async toggleTheme() {
+        try {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            await this.updateThemeIcon(newTheme);
+        } catch (error) {
+            console.error('Error toggling theme:', error);
+        }
+    }
+
+    async handleContactClick(event) {
+        try {
+            const contactElement = event.currentTarget;
+            if (!contactElement) return;
+
+            const contact = contactElement.dataset.contact;
+            const contactNameElement = contactElement.querySelector('.contact-name');
+            const contactName = contactNameElement?.textContent;
+
+            if (!contact || !contactName) return;
+
+            this.currentContact = contact;
+            
+            if (this.elements.chatContactName) {
+                this.elements.chatContactName.textContent = contactName;
+            }
+
+            if (this.elements.contactsView) {
+                this.elements.contactsView.classList.remove('active');
+            }
+            if (this.elements.chatView) {
+                this.elements.chatView.classList.add('active');
+            }
+
+            await this.loadMessages(contact);
+        } catch (error) {
+            console.error('Error handling contact click:', error);
+        }
+    }
+
+    handleBack() {
+        try {
+            if (this.elements.chatView) {
+                this.elements.chatView.classList.remove('active');
+            }
+            if (this.elements.contactsView) {
+                this.elements.contactsView.classList.add('active');
+            }
+            this.currentContact = null;
+        } catch (error) {
+            console.error('Error handling back:', error);
+        }
+    }
+
+    async loadMessages(contact) {
+        try {
+            const response = await fetch(`/messages/${contact}`);
+            const messages = await response.json();
+            
+            if (this.elements.messagesList) {
+                this.elements.messagesList.innerHTML = messages
+                    .map(msg => this.createMessageBubble(msg))
+                    .join('');
+                this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
+            }
+        } catch (error) {
+            console.error('Error loading messages:', error);
+        }
+    }
+
+    createMessageBubble(message) {
+        const formattedTime = new Date(message.time).toLocaleString();
+        return `
+            <div class="message-bubble message-bubble--${message.sender === this.currentContact ? 'incoming' : 'outgoing'}">
+                <div class="message-text">${message.text}</div>
+                <time class="message-time" datetime="${message.time}">${formattedTime}</time>
             </div>
         `;
-        
-        messageContainer.appendChild(messageElement);
-        messageContainer.scrollTop = messageContainer.scrollHeight;
-    } catch (error) {
-        console.error('Error sending message:', error);
     }
 }
 
-function escapeHtml(unsafe) {
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// Contact list handling
-function loadContacts() {
-    try {
-        const contactList = document.getElementById('contactList');
-        if (!contactList) return;
-
-        fetch('/contacts')
-            .then(response => response.json())
-            .then(contacts => {
-                contactList.innerHTML = contacts.map(contact => `
-                    <div class="contact" onclick="selectContact('${escapeHtml(contact.name)}')">
-                        <div class="contact-info">
-                            <h5>${escapeHtml(contact.name)}</h5>
-                            <p class="text-muted">${escapeHtml(contact.phone || '')}</p>
-                        </div>
-                    </div>
-                `).join('');
-            })
-            .catch(error => console.error('Error loading contacts:', error));
-    } catch (error) {
-        console.error('Error in loadContacts:', error);
-    }
-}
-
-function selectContact(contactName) {
-    try {
-        const chatHeader = document.getElementById('chatHeader');
-        if (chatHeader) {
-            chatHeader.textContent = contactName;
+// Initialize the chat interface
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            window.chatInterface = new ChatInterface();
+        } catch (error) {
+            console.error('Error creating ChatInterface:', error);
         }
-        
-        // Load messages for selected contact
-        fetch(`/messages/${encodeURIComponent(contactName)}`)
-            .then(response => response.json())
-            .then(messages => displayMessages(messages))
-            .catch(error => console.error('Error loading messages:', error));
-    } catch (error) {
-        console.error('Error in selectContact:', error);
-    }
-}
-
-function displayMessages(messages) {
+    });
+} else {
     try {
-        const messageContainer = document.getElementById('messages');
-        if (!messageContainer) return;
-
-        messageContainer.innerHTML = messages.map(msg => `
-            <div class="message ${msg.is_sent ? 'sent' : 'received'}">
-                <div class="message-content">
-                    <p>${escapeHtml(msg.message)}</p>
-                    <small class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</small>
-                </div>
-            </div>
-        `).join('');
-        
-        messageContainer.scrollTop = messageContainer.scrollHeight;
+        window.chatInterface = new ChatInterface();
     } catch (error) {
-        console.error('Error displaying messages:', error);
+        console.error('Error creating ChatInterface:', error);
     }
 }
