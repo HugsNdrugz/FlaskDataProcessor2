@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
+from contextlib import contextmanager
 
 # Configure logging
 logging.basicConfig(
@@ -15,84 +16,74 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize connection pool
+# Initialize connection pool with optimal settings for Replit
 pool = SimpleConnectionPool(
     minconn=1,
-    maxconn=20,
+    maxconn=10,  # Replit has limited resources, keep pool size moderate
     dbname=os.getenv('PGDATABASE'),
     user=os.getenv('PGUSER'),
     password=os.getenv('PGPASSWORD'),
     host=os.getenv('PGHOST'),
     port=os.getenv('PGPORT'),
-    sslmode='require'
+    sslmode='require',
+    # PostgreSQL 15 optimized settings
+    options='-c work_mem=16MB -c maintenance_work_mem=64MB -c effective_cache_size=128MB'
 )
 
+@contextmanager
 def get_db_connection():
-    """Get a connection from the pool with error handling"""
+    """Get a connection from the pool with proper error handling and cleanup"""
+    conn = None
     try:
         conn = pool.getconn()
+        # Set session-specific parameters
+        with conn.cursor() as cur:
+            cur.execute("SET SESSION synchronous_commit = off")
+            cur.execute("SET SESSION statement_timeout = '30s'")
         logger.info("Successfully acquired database connection from pool")
-        return conn
+        yield conn
+        conn.commit()
     except Exception as e:
-        logger.error(f"Error getting database connection: {str(e)}")
+        if conn:
+            conn.rollback()
+        logger.error(f"Database connection error: {str(e)}")
         raise
+    finally:
+        if conn:
+            try:
+                pool.putconn(conn)
+            except Exception as e:
+                logger.error(f"Error returning connection to pool: {str(e)}")
 
 class Base(DeclarativeBase):
     pass
 
-# Configure SQLAlchemy with engine options for production
+# Configure SQLAlchemy with optimized engine options
 db = SQLAlchemy(
     model_class=Base,
     engine_options={
-        'pool_size': 10,
-        'max_overflow': 20,
+        'pool_size': 5,
+        'max_overflow': 10,
         'pool_timeout': 30,
-        'pool_pre_ping': True
+        'pool_pre_ping': True,
+        'pool_recycle': 1800
     }
 )
 
 def test_db_connection(app):
     """Test database connection with improved error handling and logging"""
     try:
-        with app.app_context():
-            conn = get_db_connection()
+        with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT 1')
-            pool.putconn(conn)
             logger.info("Database connection test successful!")
             return True
     except Exception as e:
         logger.error(f"Database connection test failed: {str(e)}")
         return False
 
-class Messages(db.Model):
-    """Messages model with optimized indexes"""
-    __tablename__ = 'messages'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    sender = db.Column(db.String(100), nullable=False, index=True)
-    recipient = db.Column(db.String(100), nullable=False, index=True)
-    message = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.DateTime, nullable=False, index=True)
-    is_read = db.Column(db.Boolean, default=False)
-    
-    __table_args__ = (
-        Index('idx_sender_recipient', 'sender', 'recipient'),
-        Index('idx_timestamp', 'timestamp'),
-    )
-
-    def __init__(self, sender, recipient, message, timestamp=None, is_read=False):
-        self.sender = sender
-        self.recipient = recipient
-        self.message = message
-        self.timestamp = timestamp or datetime.utcnow()
-        self.is_read = is_read
-
-    def __repr__(self):
-        return f'<Message {self.sender} to {self.recipient}: {self.message[:50]}>'
-
 class Chat(db.Model):
-    """Chat model with optimized indexes"""
+    """Chat model with optimized indexes for PostgreSQL 15"""
     __tablename__ = 'chat'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -100,8 +91,9 @@ class Chat(db.Model):
     text = db.Column(db.Text, nullable=False)
     time = db.Column(db.DateTime, nullable=False, index=True)
     
+    # Optimized compound index for common queries
     __table_args__ = (
-        Index('idx_sender_time', 'sender', 'time'),
+        Index('idx_sender_time_btree', 'sender', 'time', postgresql_using='btree'),
     )
 
     def __init__(self, sender, text, time=None):
@@ -116,17 +108,26 @@ def init_db_settings(app):
     """Initialize database settings with production configuration"""
     with app.app_context():
         try:
-            conn = get_db_connection()
-            with conn.cursor() as cur:
-                # Set only session-level parameters
-                cur.execute("SET work_mem = '16MB'")
-                cur.execute("SET maintenance_work_mem = '128MB'")
-                cur.execute("SET random_page_cost = 1.1")
-            conn.commit()
-            pool.putconn(conn)
-            logger.info("Database settings initialized successfully")
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    # PostgreSQL 15 optimized settings
+                    cur.execute("SET work_mem = '16MB'")
+                    cur.execute("SET maintenance_work_mem = '64MB'")
+                    cur.execute("SET random_page_cost = 1.1")
+                    cur.execute("SET effective_io_concurrency = 200")
+                    cur.execute("SET vacuum_cost_delay = 20")
+                    cur.execute("SET vacuum_cost_limit = 2000")
+                    
+                    # Create optimized indexes
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_chat_sender_hash 
+                        ON chat USING hash (sender)
+                    """)
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_chat_time_brin 
+                        ON chat USING brin (time)
+                    """)
+                logger.info("Database settings initialized successfully")
         except Exception as e:
             logger.error(f"Error initializing database settings: {str(e)}")
-            if 'conn' in locals():
-                pool.putconn(conn)
             raise

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request, current_app
 from sqlalchemy import text
-from models import db, Messages, Chat, get_db_connection
+from models import db, Chat, get_db_connection
 import logging
 from functools import wraps
 from datetime import datetime
@@ -42,46 +42,45 @@ def handle_errors(f):
 @routes.route('/')
 @handle_errors
 def index():
-    """Get all contacts with their latest messages"""
+    """Get all contacts with their latest messages using prepared statement"""
     query = """
-        SELECT DISTINCT ON (sender) 
-            sender,
-            time,
-            text
-        FROM chat
-        WHERE sender IS NOT NULL
-        ORDER BY sender, time DESC
+        WITH RankedMessages AS (
+            SELECT 
+                sender,
+                time,
+                text,
+                ROW_NUMBER() OVER (PARTITION BY sender ORDER BY time DESC) as rn
+            FROM chat
+            WHERE sender IS NOT NULL
+        )
+        SELECT sender, time, text
+        FROM RankedMessages
+        WHERE rn = 1
+        ORDER BY time DESC
     """
     
     try:
-        conn = get_db_connection()
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(query)
-            rows = cur.fetchall()
-            contacts = [
-                {
-                    'sender': row['sender'],
-                    'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                    'text': row['text']
-                }
-                for row in rows
-            ]
-            return render_template('index.html', contacts=contacts)
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                cur.execute(query)
+                rows = cur.fetchall()
+                contacts = [
+                    {
+                        'sender': row['sender'],
+                        'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                        'text': row['text']
+                    }
+                    for row in rows
+                ]
+                return render_template('index.html', contacts=contacts)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
         return render_template('index.html', contacts=[])
-    finally:
-        if 'conn' in locals():
-            try:
-                conn.commit()
-                conn.close()
-            except Exception as e:
-                logger.error(f"Error closing connection: {str(e)}")
 
 @routes.route('/messages/<contact>')
 @handle_errors
 def get_messages(contact):
-    """Get all messages for a specific contact"""
+    """Get all messages for a specific contact using prepared statement"""
     if not contact or not isinstance(contact, str) or len(contact) > 100:
         raise BadRequest('Invalid contact parameter')
     
@@ -90,49 +89,46 @@ def get_messages(contact):
         return jsonify(messages_cache[cache_key])
     
     query = """
-        SELECT 
-            sender,
-            text,
-            time
+        SELECT sender, text, time
         FROM chat 
         WHERE sender = %s
         ORDER BY time ASC
     """
     
     try:
-        conn = get_db_connection()
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(query, (contact,))
-            rows = cur.fetchall()
-            messages = [
-                {
-                    'sender': row['sender'],
-                    'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                    'text': row['text']
-                }
-                for row in rows
-            ]
-            
-            messages_cache[cache_key] = messages
-            return jsonify(messages)
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                cur.execute(query, (contact,))
+                rows = cur.fetchall()
+                messages = [
+                    {
+                        'sender': row['sender'],
+                        'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                        'text': row['text']
+                    }
+                    for row in rows
+                ]
+                
+                messages_cache[cache_key] = messages
+                return jsonify(messages)
     except Exception as e:
         logger.error(f"Error in get_messages route: {str(e)}")
         return jsonify([])
-    finally:
-        if 'conn' in locals():
-            try:
-                conn.close()
-            except Exception as e:
-                logger.error(f"Error closing connection: {str(e)}")
 
 @routes.route('/health')
 def health_check():
+    """Health check endpoint with connection pool monitoring"""
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cur:
-            cur.execute('SELECT 1')
-        conn.close()
-        return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow()})
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute('SELECT 1')
+                cur.execute('SELECT count(*) FROM pg_stat_activity')
+                connection_count = cur.fetchone()[0]
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow(),
+            'active_connections': connection_count
+        })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return jsonify({'status': 'unhealthy', 'error': str(e)}), 503
