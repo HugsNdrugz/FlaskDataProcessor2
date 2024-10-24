@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request
 from sqlalchemy import text
-from models import db
+from models import db, Messages
 from datetime import datetime
 
 routes = Blueprint('routes', __name__)
@@ -20,6 +20,10 @@ def index():
             UNION ALL
             SELECT from_to as contact, time, text, location
             FROM sms
+            UNION ALL
+            SELECT sender as contact, timestamp as time, message as text, NULL as location
+            FROM messages
+            WHERE recipient = 'You'
         ) combined
         ORDER BY contact, time DESC
     """)
@@ -44,26 +48,44 @@ def index():
 def get_messages(contact):
     query = text("""
         SELECT 
-            CASE 
-                WHEN sender = :contact THEN sender 
-                ELSE 'You'
-            END as sender,
-            time,
-            text,
-            NULL as location
-        FROM chat 
-        WHERE sender = :contact
-        UNION ALL
-        SELECT 
-            CASE 
-                WHEN from_to = :contact THEN from_to
-                ELSE 'You'
-            END as sender,
+            sender,
             time,
             text,
             location
-        FROM sms
-        WHERE from_to = :contact
+        FROM (
+            SELECT 
+                CASE 
+                    WHEN sender = :contact THEN sender 
+                    ELSE 'You'
+                END as sender,
+                time,
+                text,
+                NULL as location
+            FROM chat 
+            WHERE sender = :contact
+            UNION ALL
+            SELECT 
+                CASE 
+                    WHEN from_to = :contact THEN from_to
+                    ELSE 'You'
+                END as sender,
+                time,
+                text,
+                location
+            FROM sms
+            WHERE from_to = :contact
+            UNION ALL
+            SELECT 
+                CASE 
+                    WHEN sender = :contact THEN sender
+                    ELSE 'You'
+                END as sender,
+                timestamp as time,
+                message as text,
+                NULL as location
+            FROM messages
+            WHERE sender = :contact OR recipient = :contact
+        ) combined
         ORDER BY time ASC
     """)
     
@@ -93,20 +115,16 @@ def send_message():
         if not contact or not message_text:
             return jsonify({'error': 'Missing contact or message'}), 400
         
-        # Insert new message into chat table
-        new_message = text("""
-            INSERT INTO chat (sender, time, text)
-            VALUES (:sender, :time, :text)
-        """)
-        
-        db.session.execute(
-            new_message,
-            {
-                'sender': contact,
-                'time': datetime.utcnow(),
-                'text': message_text
-            }
+        # Insert into messages table
+        new_message = Messages(
+            sender='You',
+            recipient=contact,
+            message=message_text,
+            timestamp=datetime.utcnow(),
+            is_read=True
         )
+        
+        db.session.add(new_message)
         db.session.commit()
         
         return jsonify({'status': 'success'})

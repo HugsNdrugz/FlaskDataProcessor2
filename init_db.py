@@ -1,5 +1,5 @@
 from app import create_app
-from models import db, Chat, SMS
+from models import db, Chat, SMS, Messages
 from datetime import datetime, timedelta
 
 def init_db():
@@ -25,9 +25,19 @@ def init_db():
                 location='Office Building')
         ]
 
+        sample_messages = [
+            Messages(sender='You', recipient='Alice', message='Great, see you soon!',
+                    timestamp=datetime.utcnow() - timedelta(minutes=45), is_read=True),
+            Messages(sender='Bob', recipient='You', message='Let\'s catch up later',
+                    timestamp=datetime.utcnow() - timedelta(minutes=20), is_read=False),
+            Messages(sender='You', recipient='Charlie', message='Perfect, I\'ll be ready',
+                    timestamp=datetime.utcnow() - timedelta(minutes=10), is_read=True)
+        ]
+
         # Add sample data to database
         db.session.add_all(sample_chats)
         db.session.add_all(sample_sms)
+        db.session.add_all(sample_messages)
         
         try:
             db.session.commit()

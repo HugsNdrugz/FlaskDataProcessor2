@@ -85,3 +85,15 @@ class Keylogs(db.Model):
 
     def __repr__(self):
         return f'<Keylog {self.application}: {self.text[:20]}...>'
+
+class Messages(db.Model):
+    __tablename__ = 'messages'
+    id = db.Column(db.Integer, primary_key=True)
+    sender = db.Column(db.String(100), nullable=False)
+    recipient = db.Column(db.String(100), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    
+    def __repr__(self):
+        return f'<Message {self.sender} to {self.recipient}: {self.message[:20]}...>'
