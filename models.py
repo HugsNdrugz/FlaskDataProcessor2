@@ -32,6 +32,11 @@ class Chat(db.Model):
     text = db.Column(db.Text, nullable=False)
     time = db.Column(db.DateTime, nullable=False)
 
+    def __init__(self, sender, text, time):
+        self.sender = sender
+        self.text = text
+        self.time = time
+
     def __repr__(self):
         return f'<Chat {self.sender}: {self.text}>'
 
@@ -42,6 +47,12 @@ class SMS(db.Model):
     text = db.Column(db.Text, nullable=False)
     time = db.Column(db.DateTime, nullable=False)
     location = db.Column(db.String(200))
+
+    def __init__(self, from_to, text, time, location=None):
+        self.from_to = from_to
+        self.text = text
+        self.time = time
+        self.location = location
 
     def __repr__(self):
         return f'<SMS {self.from_to}: {self.text}>'
@@ -55,6 +66,13 @@ class Calls(db.Model):
     duration = db.Column(db.Integer)
     location = db.Column(db.String(200))
 
+    def __init__(self, call_type, time, from_to, duration=None, location=None):
+        self.call_type = call_type
+        self.time = time
+        self.from_to = from_to
+        self.duration = duration
+        self.location = location
+
     def __repr__(self):
         return f'<Call {self.from_to}: {self.duration}s>'
 
@@ -62,6 +80,9 @@ class Contacts(db.Model):
     __tablename__ = 'contacts'
     contact_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+
+    def __init__(self, name):
+        self.name = name
 
     def __repr__(self):
         return f'<Contact {self.name}>'
@@ -73,6 +94,11 @@ class InstalledApps(db.Model):
     package_name = db.Column(db.String(200), nullable=False)
     install_date = db.Column(db.DateTime, nullable=False)
 
+    def __init__(self, application_name, package_name, install_date):
+        self.application_name = application_name
+        self.package_name = package_name
+        self.install_date = install_date
+
     def __repr__(self):
         return f'<App {self.application_name}>'
 
@@ -82,6 +108,11 @@ class Keylogs(db.Model):
     application = db.Column(db.String(200), nullable=False)
     time = db.Column(db.DateTime, nullable=False)
     text = db.Column(db.Text, nullable=False)
+
+    def __init__(self, application, time, text):
+        self.application = application
+        self.time = time
+        self.text = text
 
     def __repr__(self):
         return f'<Keylog {self.application}: {self.text[:20]}...>'
@@ -95,5 +126,12 @@ class Messages(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False)
     is_read = db.Column(db.Boolean, default=False)
     
+    def __init__(self, sender, recipient, message, timestamp, is_read=False):
+        self.sender = sender
+        self.recipient = recipient
+        self.message = message
+        self.timestamp = timestamp
+        self.is_read = is_read
+
     def __repr__(self):
         return f'<Message {self.sender} to {self.recipient}: {self.message[:20]}...>'
