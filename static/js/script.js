@@ -151,9 +151,10 @@ class ChatInterface {
             const messages = await response.json();
             
             if (this.elements.messagesList) {
-                this.elements.messagesList.innerHTML = messages
+                const messagesHTML = messages
                     .map(msg => this.createMessageBubble(msg))
                     .join('');
+                this.elements.messagesList.innerHTML = messagesHTML;
                 this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
             }
         } catch (error) {
@@ -163,28 +164,28 @@ class ChatInterface {
 
     createMessageBubble(message) {
         const formattedTime = new Date(message.time).toLocaleString();
+        const bubbleClass = message.sender === this.currentContact ? 'incoming' : 'outgoing';
+        
         return `
-            <div class="message-bubble message-bubble--${message.sender === this.currentContact ? 'incoming' : 'outgoing'}">
-                <div class="message-text">${message.text}</div>
+            <div class="message-bubble message-bubble--${bubbleClass}">
+                <div class="message-text">${message.text || ''}</div>
                 <time class="message-time" datetime="${message.time}">${formattedTime}</time>
             </div>
-        `;
+        `.trim();
     }
 }
 
 // Initialize the chat interface
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        try {
-            window.chatInterface = new ChatInterface();
-        } catch (error) {
-            console.error('Error creating ChatInterface:', error);
-        }
-    });
-} else {
+const initializeChat = () => {
     try {
         window.chatInterface = new ChatInterface();
     } catch (error) {
         console.error('Error creating ChatInterface:', error);
     }
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChat);
+} else {
+    initializeChat();
 }
