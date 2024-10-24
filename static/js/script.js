@@ -36,15 +36,13 @@ class ChatInterface {
 
         for (const [key, selector] of Object.entries(selectors)) {
             try {
-                const element = key === 'contacts' 
+                this.elements[key] = key === 'contacts' 
                     ? document.querySelectorAll(selector)
                     : document.querySelector(selector);
                     
-                if (!element && key !== 'contacts') {
+                if (!this.elements[key] && key !== 'contacts') {
                     console.warn(`Element not found: ${selector}`);
                 }
-                
-                this.elements[key] = element;
             } catch (error) {
                 console.warn(`Error caching element ${key}:`, error);
                 this.elements[key] = null;
@@ -71,12 +69,8 @@ class ChatInterface {
     async initializeTheme() {
         try {
             const savedTheme = localStorage.getItem('theme') || 'dark';
-            const html = document.documentElement;
-            
-            if (html) {
-                html.setAttribute('data-theme', savedTheme);
-                await this.updateThemeIcon(savedTheme);
-            }
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            await this.updateThemeIcon(savedTheme);
         } catch (error) {
             console.error('Error initializing theme:', error);
         }
@@ -96,13 +90,10 @@ class ChatInterface {
 
     async toggleTheme() {
         try {
-            const html = document.documentElement;
-            if (!html) return;
-
-            const currentTheme = html.getAttribute('data-theme') || 'dark';
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
-            html.setAttribute('data-theme', newTheme);
+            document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             await this.updateThemeIcon(newTheme);
         } catch (error) {
@@ -127,8 +118,12 @@ class ChatInterface {
                 this.elements.chatContactName.textContent = contactName;
             }
 
-            this.elements.contactsView?.classList.remove('active');
-            this.elements.chatView?.classList.add('active');
+            if (this.elements.contactsView) {
+                this.elements.contactsView.classList.remove('active');
+            }
+            if (this.elements.chatView) {
+                this.elements.chatView.classList.add('active');
+            }
 
             await this.loadMessages(contact);
         } catch (error) {
@@ -138,8 +133,12 @@ class ChatInterface {
 
     handleBack() {
         try {
-            this.elements.chatView?.classList.remove('active');
-            this.elements.contactsView?.classList.add('active');
+            if (this.elements.chatView) {
+                this.elements.chatView.classList.remove('active');
+            }
+            if (this.elements.contactsView) {
+                this.elements.contactsView.classList.add('active');
+            }
             this.currentContact = null;
         } catch (error) {
             console.error('Error handling back:', error);
@@ -152,7 +151,9 @@ class ChatInterface {
             const messages = await response.json();
             
             if (this.elements.messagesList) {
-                this.elements.messagesList.innerHTML = messages.map(msg => this.createMessageBubble(msg)).join('');
+                this.elements.messagesList.innerHTML = messages
+                    .map(msg => this.createMessageBubble(msg))
+                    .join('');
                 this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
             }
         } catch (error) {
@@ -163,7 +164,7 @@ class ChatInterface {
     createMessageBubble(message) {
         const formattedTime = new Date(message.time).toLocaleString();
         return `
-            <div class="message-bubble message-bubble--incoming">
+            <div class="message-bubble message-bubble--${message.sender === this.currentContact ? 'incoming' : 'outgoing'}">
                 <div class="message-text">${message.text}</div>
                 <time class="message-time" datetime="${message.time}">${formattedTime}</time>
             </div>
@@ -171,6 +172,7 @@ class ChatInterface {
     }
 }
 
+// Initialize the chat interface
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         try {

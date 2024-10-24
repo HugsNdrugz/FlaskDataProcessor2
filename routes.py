@@ -47,7 +47,7 @@ def index():
                 time,
                 text,
                 ROW_NUMBER() OVER (PARTITION BY sender ORDER BY time DESC) as rn
-            FROM chat
+            FROM chats
             WHERE sender IS NOT NULL
         )
         SELECT sender, time, text
@@ -87,7 +87,7 @@ def get_messages(contact):
     
     query = """
         SELECT sender, text, time
-        FROM chat 
+        FROM chats 
         WHERE sender = %s
         ORDER BY time ASC
     """
