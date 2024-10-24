@@ -169,14 +169,10 @@ class ChatInterface {
     }
 
     createMessageBubble(message) {
-        const isOutgoing = message.sender === 'You';
-        const bubbleClass = isOutgoing ? 'message-bubble--outgoing' : 'message-bubble--incoming';
-        const location = message.location ? `<div class="message-location">${message.location}</div>` : '';
-        
+        const bubbleClass = message.is_outgoing ? 'message-bubble--outgoing' : 'message-bubble--incoming';
         return `
             <div class="message-bubble ${bubbleClass}">
                 <div class="message-text">${message.text}</div>
-                ${location}
                 <time class="message-time" datetime="${message.time}">${message.time}</time>
             </div>
         `;
@@ -225,7 +221,6 @@ class ChatInterface {
     }
 }
 
-// Initialize the chat interface
 const initChatInterface = () => {
     try {
         window.chatInterface = new ChatInterface();

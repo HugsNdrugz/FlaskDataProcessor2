@@ -1,31 +1,19 @@
 from flask import Blueprint, render_template, jsonify, request
 from sqlalchemy import text
-from models import db, Messages
+from models import db, Messages, Chat
 from datetime import datetime
 
 routes = Blueprint('routes', __name__)
 
 @routes.route('/')
 def index():
-    # Fixed DISTINCT ON query with proper ORDER BY clause
     query = text("""
-        SELECT DISTINCT ON (contact) 
-            contact,
+        SELECT DISTINCT ON (sender) 
+            sender as contact,
             time,
-            text,
-            location
-        FROM (
-            SELECT sender as contact, time, text, NULL as location
-            FROM chat
-            UNION ALL
-            SELECT from_to as contact, time, text, location
-            FROM sms
-            UNION ALL
-            SELECT sender as contact, timestamp as time, message as text, NULL as location
-            FROM messages
-            WHERE recipient = 'You'
-        ) combined
-        ORDER BY contact, time DESC
+            text
+        FROM chat
+        ORDER BY sender, time DESC
     """)
     
     try:
@@ -34,15 +22,14 @@ def index():
             {
                 'sender': row.contact,
                 'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
-                'text': row.text,
-                'location': row.location
+                'text': row.text
             }
             for row in result
         ]
-        return render_template('index.html', contacts=contacts, messages=[])
+        return render_template('index.html', contacts=contacts)
     except Exception as e:
         print(f"Database error: {str(e)}")
-        return render_template('index.html', contacts=[], messages=[])
+        return render_template('index.html', contacts=[])
 
 @routes.route('/messages/<contact>')
 def get_messages(contact):
@@ -51,41 +38,12 @@ def get_messages(contact):
             sender,
             time,
             text,
-            location
-        FROM (
-            SELECT 
-                CASE 
-                    WHEN sender = :contact THEN sender 
-                    ELSE 'You'
-                END as sender,
-                time,
-                text,
-                NULL as location
-            FROM chat 
-            WHERE sender = :contact
-            UNION ALL
-            SELECT 
-                CASE 
-                    WHEN from_to = :contact THEN from_to
-                    ELSE 'You'
-                END as sender,
-                time,
-                text,
-                location
-            FROM sms
-            WHERE from_to = :contact
-            UNION ALL
-            SELECT 
-                CASE 
-                    WHEN sender = :contact THEN sender
-                    ELSE 'You'
-                END as sender,
-                timestamp as time,
-                message as text,
-                NULL as location
-            FROM messages
-            WHERE sender = :contact OR recipient = :contact
-        ) combined
+            CASE 
+                WHEN sender = :contact THEN false
+                ELSE true
+            END as is_outgoing
+        FROM chat 
+        WHERE sender = :contact OR sender = 'You'
         ORDER BY time ASC
     """)
     
@@ -96,7 +54,7 @@ def get_messages(contact):
                 'sender': row.sender,
                 'time': row.time.strftime('%Y-%m-%d %H:%M:%S'),
                 'text': row.text,
-                'location': row.location
+                'is_outgoing': row.is_outgoing
             }
             for row in result
         ]
@@ -115,13 +73,11 @@ def send_message():
         if not contact or not message_text:
             return jsonify({'error': 'Missing contact or message'}), 400
         
-        # Insert into messages table
-        new_message = Messages(
+        # Insert into chat table
+        new_message = Chat(
             sender='You',
-            recipient=contact,
-            message=message_text,
-            timestamp=datetime.utcnow(),
-            is_read=True
+            text=message_text,
+            time=datetime.utcnow()
         )
         
         db.session.add(new_message)
