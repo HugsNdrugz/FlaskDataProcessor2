@@ -10,3 +10,4 @@ sqlalchemy
 cachetools
 openpyxl
 python-dotenv
+nicegui==2.4.0
