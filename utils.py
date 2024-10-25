@@ -11,7 +11,7 @@ def detect_encoding(file_path):
     return result.get('encoding', 'utf-8')
 
 def convert_to_utc_safe(time_str, format_str="%b %d, %I:%M %p"):
-    try:
+    try:I was fucking doing talk to Tex.
         dt = datetime.strptime(time_str, format_str)
         dt = dt.replace(year=datetime.now().year)
         return dt.strftime("%Y-%m-%d %H:%M:%S")
