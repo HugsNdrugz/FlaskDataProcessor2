@@ -55,30 +55,6 @@ args = "Import All Data"
 task = "workflow.run"
 args = "Check Import"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Import All"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Import Data"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Verify Import"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Check DB"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Check DB Status"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Clean DB"
-
 [[workflows.workflow]]
 name = "Start Flask App"
 author = "agent"
@@ -130,9 +106,6 @@ author = "agent"
 
 [workflows.workflow.metadata]
 agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -204,72 +177,6 @@ agentRequireRestartOnSave = false
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 check_import.py"
-
-[[workflows.workflow]]
-name = "Import All"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 import_all_data.py"
-
-[[workflows.workflow]]
-name = "Import Data"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 import_all_data.py"
-
-[[workflows.workflow]]
-name = "Verify Import"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 check_import.py"
-
-[[workflows.workflow]]
-name = "Check DB"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 check_db.py"
-
-[[workflows.workflow]]
-name = "Check DB Status"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 check_db.py"
-
-[[workflows.workflow]]
-name = "Clean DB"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 clean_db.py"
 
 [deployment]
 run = ["sh", "-c", "python3 app.py"]

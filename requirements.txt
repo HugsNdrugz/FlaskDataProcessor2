@@ -16,7 +16,3 @@ eventlet
 gunicorn
 python-socketio
 simple-websocket
-flask-socketio>=5.0.0
-python-socketio>=5.0.0
-flask-socketio
-flask-cors

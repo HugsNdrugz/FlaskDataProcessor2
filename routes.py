@@ -39,147 +39,89 @@ def handle_errors(f):
 @routes.route('/')
 @handle_errors
 def index():
-    """Get initial contacts with optimized query"""
+    """Get all contacts with their latest messages"""
+    query = """
+        WITH RankedMessages AS (
+            SELECT 
+                c.sender,
+                c.recipient,
+                c.time,
+                c.text,
+                ROW_NUMBER() OVER (PARTITION BY CASE 
+                    WHEN c.sender = 'user' THEN c.recipient 
+                    ELSE c.sender 
+                END ORDER BY c.time DESC) as rn
+            FROM chats c
+            WHERE c.sender IS NOT NULL
+        )
+        SELECT sender, recipient, time, text
+        FROM RankedMessages
+        WHERE rn = 1
+        ORDER BY time DESC
+    """
+    
     try:
-        with get_db_connection(readonly=True) as conn:
+        with get_db_connection() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                # Get initial set of contacts
-                cur.execute("""
-                    WITH RankedMessages AS (
-                        SELECT DISTINCT ON (contact_name)
-                            CASE 
-                                WHEN sender = 'user' THEN recipient 
-                                ELSE sender 
-                            END as contact_name,
-                            text,
-                            time,
-                            id,
-                            ROW_NUMBER() OVER (ORDER BY time DESC) as rn
-                        FROM chats
-                        WHERE sender IS NOT NULL
-                    )
-                    SELECT *
-                    FROM RankedMessages
-                    WHERE rn <= 20
-                    ORDER BY time DESC
-                """)
-                contacts = [{
-                    'sender': row['contact_name'],
-                    'text': row['text'],
-                    'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                    'id': row['id']
-                } for row in cur.fetchall()]
+                cur.execute(query)
+                rows = cur.fetchall()
+                contacts = []
+                for row in rows:
+                    contact_name = row['recipient'] if row['sender'] == 'user' else row['sender']
+                    contacts.append({
+                        'sender': contact_name,
+                        'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                        'text': row['text']
+                    })
                 return render_template('index.html', contacts=contacts)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
         return render_template('index.html', contacts=[])
 
-@routes.route('/contacts')
-@handle_errors
-def get_contacts():
-    """Get contacts with optimized pagination and cursor-based navigation"""
-    cursor = request.args.get('cursor', type=int, default=0)
-    limit = min(int(request.args.get('limit', 20)), 50)
-    
-    try:
-        with get_db_connection(readonly=True) as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                # Get next batch of contacts using cursor
-                cur.execute("""
-                    WITH RankedMessages AS (
-                        SELECT DISTINCT ON (contact_name)
-                            CASE 
-                                WHEN sender = 'user' THEN recipient 
-                                ELSE sender 
-                            END as contact_name,
-                            text,
-                            time,
-                            id,
-                            ROW_NUMBER() OVER (ORDER BY time DESC) as rn
-                        FROM chats
-                        WHERE sender IS NOT NULL
-                            AND id < %s
-                    )
-                    SELECT *
-                    FROM RankedMessages
-                    WHERE rn <= %s
-                    ORDER BY time DESC
-                """, (cursor if cursor > 0 else float('inf'), limit + 1))
-                
-                rows = cur.fetchall()
-                has_more = len(rows) > limit
-                contacts = rows[:limit]
-                
-                result = [{
-                    'name': row['contact_name'],
-                    'last_message': row['text'],
-                    'last_message_time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                    'cursor': row['id']
-                } for row in contacts]
-                
-                return jsonify({
-                    'contacts': result,
-                    'has_more': has_more
-                })
-    except Exception as e:
-        logger.error(f"Error in get_contacts route: {str(e)}")
-        return jsonify({'contacts': [], 'has_more': False})
-
 @routes.route('/messages/<contact>')
 @handle_errors
 def get_messages(contact):
-    """Get messages with optimized caching and cursor-based pagination"""
-    if not contact or not isinstance(contact, str):
+    """Get all messages for a specific contact"""
+    if not contact or not isinstance(contact, str) or len(contact) > 100:
         raise BadRequest('Invalid contact parameter')
     
-    cursor = request.args.get('cursor', type=int, default=0)
-    limit = min(int(request.args.get('limit', 20)), 50)
+    cache_key = f'messages_{contact}'
+    if cache_key in messages_cache:
+        return jsonify(messages_cache[cache_key])
     
-    cache_key = f'messages_{contact}_{cursor}_{limit}'
-    cached_result = messages_cache.get(cache_key)
-    if cached_result:
-        return jsonify(cached_result)
+    query = """
+        SELECT sender, recipient, text, time
+        FROM chats 
+        WHERE (sender = %s AND recipient = 'user')
+           OR (sender = 'user' AND recipient = %s)
+        ORDER BY time ASC
+    """
     
     try:
-        with get_db_connection(readonly=True) as conn:
+        with get_db_connection() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                # Get messages with cursor-based pagination
-                cur.execute("""
-                    SELECT sender, text, time, id,
-                           ROW_NUMBER() OVER (ORDER BY time DESC) as rn
-                    FROM chats 
-                    WHERE ((sender = %s AND recipient = 'user')
-                        OR (sender = 'user' AND recipient = %s))
-                        AND id < %s
-                    ORDER BY time DESC
-                    LIMIT %s
-                """, (contact, contact, cursor if cursor > 0 else float('inf'), limit + 1))
-                
+                cur.execute(query, (contact, contact))
                 rows = cur.fetchall()
-                has_more = len(rows) > limit
-                messages = rows[:limit]
-                
-                result = {
-                    'messages': [{
+                messages = [
+                    {
                         'sender': row['sender'],
                         'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                        'text': row['text'],
-                        'cursor': row['id']
-                    } for row in messages],
-                    'has_more': has_more
-                }
+                        'text': row['text']
+                    }
+                    for row in rows
+                ]
                 
-                messages_cache[cache_key] = result
-                return jsonify(result)
+                messages_cache[cache_key] = messages
+                return jsonify(messages)
     except Exception as e:
         logger.error(f"Error in get_messages route: {str(e)}")
-        return jsonify({'messages': [], 'has_more': False})
+        return jsonify([])
 
 @routes.route('/health')
 def health_check():
-    """Health check endpoint with connection monitoring"""
+    """Health check endpoint with connection pool monitoring"""
     try:
-        with get_db_connection(readonly=True) as conn:
+        with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT 1')
                 cur.execute('SELECT count(*) FROM pg_stat_activity')
