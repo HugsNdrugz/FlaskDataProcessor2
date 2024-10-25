@@ -30,6 +30,7 @@ class ChatInterface {
             await this.cacheElements();
             await this.initializeTheme();
             this.bindEvents();
+            this.initializeUpload();
             this.retryCount = 0;
         } catch (error) {
             this.handleError(error);
@@ -45,7 +46,13 @@ class ChatInterface {
             themeToggle: '.theme-toggle',
             themeIcon: '.theme-toggle i',
             messagesList: '.messages-list',
-            chatContactName: '#chatView .contact-name'
+            chatContactName: '#chatView .contact-name',
+            fileUpload: '#fileUpload',
+            uploadButton: '#uploadButton',
+            uploadForm: '#uploadForm',
+            uploadModal: '#uploadModal',
+            errorModal: '#errorModal',
+            errorMessage: '#errorMessage'
         };
 
         for (const [key, selector] of Object.entries(selectors)) {
@@ -68,6 +75,80 @@ class ChatInterface {
 
         this.elements.backButton?.addEventListener('click', () => this.handleBack());
         this.elements.themeToggle?.addEventListener('click', () => this.toggleTheme());
+    }
+
+    initializeUpload() {
+        if (this.elements.uploadButton && this.elements.fileUpload) {
+            // Show upload button only in contacts view
+            this.elements.uploadForm.style.display = 
+                this.elements.contactsView.classList.contains('active') ? 'inline-block' : 'none';
+
+            this.elements.uploadButton.addEventListener('click', () => {
+                this.elements.fileUpload.click();
+            });
+
+            this.elements.fileUpload.addEventListener('change', async (e) => {
+                await this.handleFileUpload(e);
+            });
+        }
+    }
+
+    async handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.name.match(/\.(csv|xlsx)$/i)) {
+            this.showError('Please select a CSV or Excel file.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            // Show upload modal with loading state
+            const uploadModal = new bootstrap.Modal(this.elements.uploadModal);
+            uploadModal.show();
+
+            // Disable upload button during upload
+            this.elements.uploadButton.disabled = true;
+            this.elements.uploadButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Uploading...';
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Upload failed');
+            }
+
+            // Reload the page to show new data
+            window.location.reload();
+        } catch (error) {
+            this.showError(error.message || 'Failed to upload file');
+        } finally {
+            // Reset file input and button state
+            this.elements.fileUpload.value = '';
+            this.elements.uploadButton.disabled = false;
+            this.elements.uploadButton.innerHTML = '<i class="bi bi-upload me-1"></i> Import Data';
+            
+            // Hide upload modal
+            const uploadModal = bootstrap.Modal.getInstance(this.elements.uploadModal);
+            if (uploadModal) {
+                uploadModal.hide();
+            }
+        }
+    }
+
+    showError(message) {
+        if (this.elements.errorMessage) {
+            this.elements.errorMessage.textContent = message;
+            const errorModal = new bootstrap.Modal(this.elements.errorModal);
+            errorModal.show();
+        }
     }
 
     async initializeTheme() {
@@ -118,6 +199,11 @@ class ChatInterface {
                 this.elements.chatContactName.textContent = contactName;
             }
 
+            // Hide upload button in chat view
+            if (this.elements.uploadForm) {
+                this.elements.uploadForm.style.display = 'none';
+            }
+
             this.elements.contactsView?.classList.remove('active');
             this.elements.chatView?.classList.add('active');
 
@@ -128,6 +214,11 @@ class ChatInterface {
     }
 
     handleBack() {
+        // Show upload button when returning to contacts view
+        if (this.elements.uploadForm) {
+            this.elements.uploadForm.style.display = 'inline-block';
+        }
+
         this.elements.chatView?.classList.remove('active');
         this.elements.contactsView?.classList.add('active');
         this.currentContact = null;

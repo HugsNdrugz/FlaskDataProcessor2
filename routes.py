@@ -1,11 +1,14 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, current_app
 import logging
 from functools import wraps
 from datetime import datetime
 from werkzeug.exceptions import BadRequest
+from werkzeug.utils import secure_filename
 from cachetools import TTLCache
 import psycopg2.extras
 from models import get_db_connection
+import pandas as pd
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -116,6 +119,56 @@ def get_messages(contact):
     except Exception as e:
         logger.error(f"Error in get_messages route: {str(e)}")
         return jsonify([])
+
+@routes.route('/upload', methods=['POST'])
+@handle_errors
+def upload_file():
+    """Handle file upload and import"""
+    if 'file' not in request.files:
+        raise BadRequest('No file provided')
+        
+    file = request.files['file']
+    if not file.filename:
+        raise BadRequest('No file selected')
+        
+    filename = secure_filename(file.filename)
+    if not filename.endswith(('.csv', '.xlsx')):
+        raise BadRequest('Invalid file format. Only CSV and Excel files are allowed.')
+        
+    try:
+        # Save file temporarily
+        temp_path = os.path.join('/tmp', filename)
+        file.save(temp_path)
+        
+        # Import data based on file type
+        if filename.endswith('.csv'):
+            df = pd.read_csv(temp_path)
+        else:
+            df = pd.read_excel(temp_path)
+            
+        # Process and import data
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                for _, row in df.iterrows():
+                    cur.execute("""
+                        INSERT INTO chats (messenger, time, sender, recipient, text)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        row.get('Messenger', 'Unknown'),
+                        pd.to_datetime(row['Time']),
+                        row['Sender'],
+                        'user',
+                        row['Text']
+                    ))
+                    
+        # Clean up
+        os.remove(temp_path)
+        
+        return jsonify({'message': 'File uploaded and processed successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error processing upload: {str(e)}")
+        return jsonify({'error': 'Failed to process file'}), 500
 
 @routes.route('/health')
 def health_check():
