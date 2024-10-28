@@ -182,17 +182,5 @@ args = "python3 check_import.py"
 run = ["sh", "-c", "python3 app.py"]
 
 [[ports]]
-localPort = 3000
-externalPort = 3000
-
-[[ports]]
 localPort = 5000
-externalPort = 5000
-
-[[ports]]
-localPort = 5001
-externalPort = 5173
-
-[[ports]]
-localPort = 8080
 externalPort = 80

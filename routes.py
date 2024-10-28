@@ -30,10 +30,10 @@ def handle_errors(f):
             return jsonify({'error': str(e)}), 400
         except psycopg2.Error as e:
             logger.error(f"Database error: {str(e)}")
-            return jsonify({'error': 'Database error occurred'}), 500
+            return render_template('index.html', contacts=[], error="Database error occurred")
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
-            return jsonify({'error': 'An unexpected error occurred'}), 500
+            return render_template('index.html', contacts=[], error="An unexpected error occurred")
     return wrapper
 
 @routes.route('/')
@@ -70,13 +70,13 @@ def index():
                     contact_name = row['recipient'] if row['sender'] == 'user' else row['sender']
                     contacts.append({
                         'sender': contact_name,
-                        'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                        'time': row['time'].strftime('%I:%M %p'),
                         'text': row['text']
                     })
                 return render_template('index.html', contacts=contacts)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
-        return render_template('index.html', contacts=[])
+        return render_template('index.html', contacts=[], error="Unable to load contacts")
 
 @routes.route('/messages/<contact>')
 @handle_errors
@@ -105,7 +105,7 @@ def get_messages(contact):
                 messages = [
                     {
                         'sender': row['sender'],
-                        'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                        'time': row['time'].strftime('%I:%M %p'),
                         'text': row['text']
                     }
                     for row in rows
@@ -115,7 +115,7 @@ def get_messages(contact):
                 return jsonify(messages)
     except Exception as e:
         logger.error(f"Error in get_messages route: {str(e)}")
-        return jsonify([])
+        return jsonify({'error': 'Unable to load messages'}), 500
 
 @routes.route('/health')
 def health_check():
