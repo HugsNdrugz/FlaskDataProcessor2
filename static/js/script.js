@@ -4,6 +4,8 @@ class ChatInterface {
     constructor() {
         this.currentContact = null;
         this.elements = {};
+        this.messageCache = new Map();
+        this.loadingStates = new Set();
         
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
@@ -17,6 +19,7 @@ class ChatInterface {
             await this.cacheElements();
             await this.initializeTheme();
             this.bindEvents();
+            this.setupContactsList();
         } catch (error) {
             console.error('Error in init:', error);
         }
@@ -31,7 +34,8 @@ class ChatInterface {
             themeToggle: '.theme-toggle',
             themeIcon: '.theme-toggle i',
             messagesList: '.messages-list',
-            chatContactName: '#chatView .contact-name'
+            chatContactName: '#chatView .contact-name',
+            messagesContainer: '.messages-container'
         };
 
         for (const [key, selector] of Object.entries(selectors)) {
@@ -50,6 +54,20 @@ class ChatInterface {
         }
     }
 
+    setupContactsList() {
+        if (this.elements.contacts?.length) {
+            this.elements.contacts.forEach(contact => {
+                const avatar = contact.querySelector('.contact-avatar');
+                if (avatar) {
+                    const name = contact.querySelector('.contact-name')?.textContent;
+                    if (name) {
+                        avatar.textContent = name.charAt(0).toUpperCase();
+                    }
+                }
+            });
+        }
+    }
+
     bindEvents() {
         if (this.elements.contacts?.length) {
             this.elements.contacts.forEach(contact => {
@@ -63,6 +81,10 @@ class ChatInterface {
 
         if (this.elements.themeToggle) {
             this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
+
+        if (this.elements.messagesContainer) {
+            this.elements.messagesContainer.addEventListener('scroll', () => this.handleScroll());
         }
     }
 
@@ -101,6 +123,27 @@ class ChatInterface {
         }
     }
 
+    setLoading(key, isLoading) {
+        if (isLoading) {
+            this.loadingStates.add(key);
+        } else {
+            this.loadingStates.delete(key);
+        }
+
+        const messagesList = this.elements.messagesList;
+        if (!messagesList) return;
+
+        const loadingElement = messagesList.querySelector('.loading');
+        if (isLoading && !loadingElement) {
+            const loader = document.createElement('div');
+            loader.className = 'loading';
+            loader.textContent = 'Loading messages';
+            messagesList.appendChild(loader);
+        } else if (!isLoading && loadingElement) {
+            loadingElement.remove();
+        }
+    }
+
     async handleContactClick(event) {
         try {
             const contactElement = event.currentTarget;
@@ -111,6 +154,11 @@ class ChatInterface {
             const contactName = contactNameElement?.textContent;
 
             if (!contact || !contactName) return;
+
+            // Remove active class from all contacts
+            this.elements.contacts.forEach(c => c.classList.remove('active'));
+            // Add active class to clicked contact
+            contactElement.classList.add('active');
 
             this.currentContact = contact;
             
@@ -139,18 +187,29 @@ class ChatInterface {
             if (this.elements.contactsView) {
                 this.elements.contactsView.classList.add('active');
             }
+            // Remove active class from all contacts
+            this.elements.contacts.forEach(c => c.classList.remove('active'));
             this.currentContact = null;
         } catch (error) {
             console.error('Error handling back:', error);
         }
     }
 
+    handleScroll() {
+        // Implement infinite scrolling or load more messages
+        // when user scrolls to top of messages container
+    }
+
     async loadMessages(contact) {
         try {
+            this.setLoading(contact, true);
+
             const response = await fetch(`/messages/${contact}`);
             const messages = await response.json();
             
-            if (this.elements.messagesList) {
+            this.messageCache.set(contact, messages);
+            
+            if (this.elements.messagesList && this.currentContact === contact) {
                 const messagesHTML = messages
                     .map(msg => this.createMessageBubble(msg))
                     .join('');
@@ -159,19 +218,34 @@ class ChatInterface {
             }
         } catch (error) {
             console.error('Error loading messages:', error);
+        } finally {
+            this.setLoading(contact, false);
         }
     }
 
     createMessageBubble(message) {
-        const formattedTime = new Date(message.time).toLocaleString();
+        const formattedTime = new Date(message.time).toLocaleString(undefined, {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+            month: 'short',
+            day: 'numeric',
+        });
+        
         const bubbleClass = message.sender === this.currentContact ? 'incoming' : 'outgoing';
         
         return `
             <div class="message-bubble message-bubble--${bubbleClass}">
-                <div class="message-text">${message.text || ''}</div>
+                <div class="message-text">${this.escapeHTML(message.text || '')}</div>
                 <time class="message-time" datetime="${message.time}">${formattedTime}</time>
             </div>
         `.trim();
+    }
+
+    escapeHTML(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 }
 
