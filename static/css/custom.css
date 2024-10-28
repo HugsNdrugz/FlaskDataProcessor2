@@ -42,7 +42,7 @@ html, body {
 .message.sent .message-content {
     background-color: var(--bs-primary);
     color: var(--bs-light);
-}
+} The console through an error
 
 .message.received .message-content {
     background-color: var(--bs-secondary);
