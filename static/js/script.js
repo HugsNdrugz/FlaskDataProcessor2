@@ -197,6 +197,59 @@ class ChatInterface {
         }
     }
 
+    parseTimestamp(timeStr) {
+        try {
+            if (!timeStr) return null;
+
+            const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)/i;
+            const match = timeStr.match(timeRegex);
+            
+            if (match) {
+                const [_, hours, minutes, period] = match;
+                const date = new Date();
+                let hour = parseInt(hours, 10);
+                
+                if (period.toLowerCase() === 'pm' && hour < 12) {
+                    hour += 12;
+                } else if (period.toLowerCase() === 'am' && hour === 12) {
+                    hour = 0;
+                }
+                
+                date.setHours(hour, parseInt(minutes, 10), 0);
+                return date;
+            }
+
+            const parsedDate = new Date(timeStr);
+            if (!isNaN(parsedDate.getTime())) {
+                return parsedDate;
+            }
+
+            const currentDate = new Date();
+            currentDate.setHours(0, 0, 0, 0);
+            return currentDate;
+
+        } catch (error) {
+            console.error('Error parsing timestamp:', error);
+            return new Date();
+        }
+    }
+
+    formatMessageTime(timestamp) {
+        try {
+            const date = this.parseTimestamp(timestamp);
+            if (!date) return 'Invalid time';
+
+            return date.toLocaleString(undefined, {
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: true
+            });
+        } catch (error) {
+            console.error('Error formatting message time:', error);
+            return 'Unknown time';
+        }
+    }
+
     async loadMoreMessages() {
         if (this.isLoadingMore || !this.currentContact) return;
 
@@ -388,9 +441,9 @@ class ChatInterface {
 
             messages.forEach(msg => {
                 try {
-                    const date = new Date(msg.time);
+                    const date = this.parseTimestamp(msg.time);
                     
-                    if (isNaN(date.getTime())) {
+                    if (!date) {
                         console.warn('Invalid date encountered:', msg.time);
                         return;
                     }
@@ -402,6 +455,7 @@ class ChatInterface {
                         dateStr = 'Yesterday';
                     } else {
                         dateStr = date.toLocaleDateString(undefined, {
+                            weekday: 'long',
                             month: 'long',
                             day: 'numeric',
                             year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
@@ -426,24 +480,7 @@ class ChatInterface {
 
     createMessageBubble(message) {
         try {
-            let formattedTime;
-            try {
-                const date = new Date(message.time);
-                if (isNaN(date.getTime())) {
-                    formattedTime = 'Invalid Date';
-                    console.warn('Invalid message time:', message.time);
-                } else {
-                    formattedTime = date.toLocaleString(undefined, {
-                        hour: 'numeric',
-                        minute: 'numeric',
-                        hour12: true
-                    });
-                }
-            } catch (error) {
-                console.warn('Error formatting message time:', error);
-                formattedTime = 'Unknown Time';
-            }
-            
+            const formattedTime = this.formatMessageTime(message.time);
             const bubbleClass = message.sender === this.currentContact ? 'incoming' : 'outgoing';
             
             return `
@@ -455,12 +492,15 @@ class ChatInterface {
             `.trim();
         } catch (error) {
             console.error('Error creating message bubble:', error);
-            return '';
+            return `
+                <div class="message-bubble message-bubble--error">
+                    <div class="message-text">Error displaying message</div>
+                </div>
+            `;
         }
     }
 }
 
-// Initialize chat interface with error handling
 const initializeChat = () => {
     try {
         window.chatInterface = new ChatInterface();
