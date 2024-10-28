@@ -4,158 +4,161 @@ class ChatInterface {
     constructor() {
         this.currentContact = null;
         this.elements = {};
-        this.socket = null;
         
-        document.addEventListener('DOMContentLoaded', () => this.init());
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.init());
+        } else {
+            this.init();
+        }
     }
 
     async init() {
         try {
             await this.cacheElements();
-            this.initializeSocket();
+            await this.initializeTheme();
             this.bindEvents();
-            this.initializeTheme();
         } catch (error) {
-            console.error('Initialization error:', error);
+            console.error('Error in init:', error);
         }
     }
 
-    initializeSocket() {
-        this.socket = io(window.location.origin, {
-            transports: ['websocket'],
-            upgrade: false
-        });
-
-        this.socket.on('connect', () => {
-            console.log('Connected to WebSocket');
-        });
-
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from WebSocket');
-        });
-
-        this.socket.on('message_update', (data) => {
-            if (this.currentContact && data.contact === this.currentContact) {
-                this.loadMessages(this.currentContact);
-            }
-        });
-    }
-
     async cacheElements() {
-        this.elements = {
-            contactsView: document.querySelector('#contactsView'),
-            chatView: document.querySelector('#chatView'),
-            contacts: document.querySelectorAll('.contact-item'),
-            backButton: document.querySelector('.back-button'),
-            themeToggle: document.querySelector('.theme-toggle'),
-            themeIcon: document.querySelector('.theme-toggle i'),
-            messagesList: document.querySelector('.messages-list'),
-            chatContactName: document.querySelector('#chatView .contact-name')
+        const selectors = {
+            contactsView: '#contactsView',
+            chatView: '#chatView',
+            contacts: '.contact-item',
+            backButton: '.back-button',
+            themeToggle: '.theme-toggle',
+            themeIcon: '.theme-toggle i',
+            messagesList: '.messages-list',
+            chatContactName: '#chatView .contact-name'
         };
+
+        for (const [key, selector] of Object.entries(selectors)) {
+            try {
+                this.elements[key] = key === 'contacts' 
+                    ? document.querySelectorAll(selector)
+                    : document.querySelector(selector);
+                    
+                if (!this.elements[key] && key !== 'contacts') {
+                    console.warn(`Element not found: ${selector}`);
+                }
+            } catch (error) {
+                console.warn(`Error caching element ${key}:`, error);
+                this.elements[key] = null;
+            }
+        }
     }
 
     bindEvents() {
-        this.elements.contacts?.forEach(contact => {
-            contact?.addEventListener('click', (e) => this.handleContactClick(e));
-        });
+        if (this.elements.contacts?.length) {
+            this.elements.contacts.forEach(contact => {
+                contact?.addEventListener('click', (e) => this.handleContactClick(e));
+            });
+        }
 
-        this.elements.backButton?.addEventListener('click', () => this.handleBack());
-        this.elements.themeToggle?.addEventListener('click', () => this.toggleTheme());
+        if (this.elements.backButton) {
+            this.elements.backButton.addEventListener('click', () => this.handleBack());
+        }
+
+        if (this.elements.themeToggle) {
+            this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
     }
 
-    initializeTheme() {
-        const theme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-bs-theme', theme);
-        this.updateThemeIcon(theme);
+    async initializeTheme() {
+        try {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            await this.updateThemeIcon(savedTheme);
+        } catch (error) {
+            console.error('Error initializing theme:', error);
+        }
     }
 
-    toggleTheme() {
-        const currentTheme = document.documentElement.getAttribute('data-bs-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-bs-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-        this.updateThemeIcon(newTheme);
+    async updateThemeIcon(theme) {
+        try {
+            const iconElement = this.elements.themeIcon;
+            if (!iconElement) return;
+
+            iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
+            iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
+        } catch (error) {
+            console.error('Error updating theme icon:', error);
+        }
     }
 
-    updateThemeIcon(theme) {
-        if (this.elements.themeIcon) {
-            this.elements.themeIcon.className = theme === 'dark' 
-                ? 'bi bi-sun-fill' 
-                : 'bi bi-moon-fill';
+    async toggleTheme() {
+        try {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            await this.updateThemeIcon(newTheme);
+        } catch (error) {
+            console.error('Error toggling theme:', error);
         }
     }
 
     async handleContactClick(event) {
-        const contactElement = event.currentTarget;
-        const contactName = contactElement.dataset.contact;
-        
-        if (!contactName) return;
-
-        if (this.currentContact) {
-            this.socket.emit('leave', { contact: this.currentContact });
-        }
-
-        this.currentContact = contactName;
-        this.socket.emit('join', { contact: contactName });
-        
-        if (this.elements.chatContactName) {
-            this.elements.chatContactName.textContent = contactName;
-        }
-        
-        this.elements.contactsView?.classList.add('d-none');
-        this.elements.chatView?.classList.remove('d-none');
-        
         try {
-            await this.loadMessages(contactName);
+            const contactElement = event.currentTarget;
+            if (!contactElement) return;
+
+            const contact = contactElement.dataset.contact;
+            const contactNameElement = contactElement.querySelector('.contact-name');
+            const contactName = contactNameElement?.textContent;
+
+            if (!contact || !contactName) return;
+
+            this.currentContact = contact;
+            
+            if (this.elements.chatContactName) {
+                this.elements.chatContactName.textContent = contactName;
+            }
+
+            if (this.elements.contactsView) {
+                this.elements.contactsView.classList.remove('active');
+            }
+            if (this.elements.chatView) {
+                this.elements.chatView.classList.add('active');
+            }
+
+            await this.loadMessages(contact);
         } catch (error) {
-            console.error('Failed to load messages:', error);
-            this.elements.messagesList.innerHTML = `
-                <div class="alert alert-danger">
-                    Failed to load messages. Please try again.
-                </div>
-            `;
+            console.error('Error handling contact click:', error);
         }
     }
 
     handleBack() {
-        if (this.currentContact) {
-            this.socket.emit('leave', { contact: this.currentContact });
+        try {
+            if (this.elements.chatView) {
+                this.elements.chatView.classList.remove('active');
+            }
+            if (this.elements.contactsView) {
+                this.elements.contactsView.classList.add('active');
+            }
+            this.currentContact = null;
+        } catch (error) {
+            console.error('Error handling back:', error);
         }
-        this.currentContact = null;
-        this.elements.chatView?.classList.add('d-none');
-        this.elements.contactsView?.classList.remove('d-none');
-        this.elements.messagesList.innerHTML = '';
     }
 
     async loadMessages(contact) {
         try {
             const response = await fetch(`/messages/${contact}`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
             const messages = await response.json();
-            this.displayMessages(messages);
+            
+            if (this.elements.messagesList) {
+                const messagesHTML = messages
+                    .map(msg => this.createMessageBubble(msg))
+                    .join('');
+                this.elements.messagesList.innerHTML = messagesHTML;
+                this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
+            }
         } catch (error) {
             console.error('Error loading messages:', error);
-            throw error;
-        }
-    }
-
-    displayMessages(messages) {
-        if (!this.elements.messagesList) return;
-        
-        this.elements.messagesList.innerHTML = '';
-        messages.forEach(message => {
-            const messageHTML = this.createMessageBubble(message);
-            this.elements.messagesList.insertAdjacentHTML('beforeend', messageHTML);
-        });
-        
-        this.scrollToBottom();
-    }
-
-    scrollToBottom() {
-        if (this.elements.messagesList) {
-            this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
         }
     }
 
@@ -165,24 +168,24 @@ class ChatInterface {
         
         return `
             <div class="message-bubble message-bubble--${bubbleClass}">
-                <div class="message-text">${this.escapeHtml(message.text || '')}</div>
+                <div class="message-text">${message.text || ''}</div>
                 <time class="message-time" datetime="${message.time}">${formattedTime}</time>
             </div>
         `.trim();
     }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+// Initialize the chat interface
+const initializeChat = () => {
+    try {
         window.chatInterface = new ChatInterface();
-    });
+    } catch (error) {
+        console.error('Error creating ChatInterface:', error);
+    }
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChat);
 } else {
-    window.chatInterface = new ChatInterface();
+    initializeChat();
 }

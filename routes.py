@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 # Initialize cache with 5-minute TTL
 messages_cache = TTLCache(maxsize=100, ttl=300)
-contacts_cache = TTLCache(maxsize=100, ttl=300)
 
 routes = Blueprint('routes', __name__)
 
@@ -37,12 +36,10 @@ def handle_errors(f):
             return jsonify({'error': 'An unexpected error occurred'}), 500
     return wrapper
 
-def get_contacts():
+@routes.route('/')
+@handle_errors
+def index():
     """Get all contacts with their latest messages"""
-    cache_key = 'contacts_list'
-    if cache_key in contacts_cache:
-        return contacts_cache[cache_key]
-        
     query = """
         WITH RankedMessages AS (
             SELECT 
@@ -72,28 +69,20 @@ def get_contacts():
                 for row in rows:
                     contact_name = row['recipient'] if row['sender'] == 'user' else row['sender']
                     contacts.append({
-                        'name': contact_name,
-                        'lastMessage': row['text'],
-                        'time': row['time'].strftime('%Y-%m-%d %H:%M:%S')
+                        'sender': contact_name,
+                        'time': row['time'].strftime('%Y-%m-%d %H:%M:%S'),
+                        'text': row['text']
                     })
-                contacts_cache[cache_key] = contacts
-                return contacts
+                return render_template('index.html', contacts=contacts)
     except Exception as e:
-        logger.error(f"Error fetching contacts: {str(e)}")
-        return []
-
-@routes.route('/')
-@handle_errors
-def index():
-    """Display contacts list"""
-    contacts = get_contacts()
-    return render_template('index.html', contacts=contacts)
+        logger.error(f"Error in index route: {str(e)}")
+        return render_template('index.html', contacts=[])
 
 @routes.route('/messages/<contact>')
 @handle_errors
 def get_messages(contact):
     """Get all messages for a specific contact"""
-    if not contact or not isinstance(contact, str):
+    if not contact or not isinstance(contact, str) or len(contact) > 100:
         raise BadRequest('Invalid contact parameter')
     
     cache_key = f'messages_{contact}'
@@ -121,6 +110,7 @@ def get_messages(contact):
                     }
                     for row in rows
                 ]
+                
                 messages_cache[cache_key] = messages
                 return jsonify(messages)
     except Exception as e:
@@ -129,12 +119,18 @@ def get_messages(contact):
 
 @routes.route('/health')
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with connection pool monitoring"""
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT 1')
-                return jsonify({'status': 'healthy'})
+                cur.execute('SELECT count(*) FROM pg_stat_activity')
+                connection_count = cur.fetchone()[0]
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow(),
+            'active_connections': connection_count
+        })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return jsonify({'status': 'unhealthy', 'error': str(e)}), 503

@@ -11,15 +11,3 @@ cachetools
 openpyxl
 python-dotenv
 nicegui==2.4.0
-flask-socketio
-eventlet
-gunicorn
-python-socketio
-simple-websocket
-flask-cors
-eventlet==0.35.2
-flask-cors==4.0.0
-flask-socketio==5.3.6
-eventlet
-flask-socketio
-python-engineio

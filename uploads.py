@@ -155,7 +155,7 @@ def main_gui():
         ui.button("Create Tables", on_click=create_tables)
         ui.button("Test DB Connection", on_click=test_db_connection)
 
-    ui.run(title="Data Manager", port=3000)
+    ui.run(title="Data Manager", port=8080)
 
 # Run th
 if __name__ in {"__main__","__mp_main__"}:

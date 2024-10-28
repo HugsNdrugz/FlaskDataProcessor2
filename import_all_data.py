@@ -3,7 +3,6 @@ import logging
 from models import get_db_connection
 from datetime import datetime
 import psycopg2.extras
-import re
 
 # Configure logging
 logging.basicConfig(
@@ -25,11 +24,7 @@ def parse_timestamp(time_str):
         
     try:
         if isinstance(time_str, str):
-            # Handle Feb 29 cases first
-            if 'Feb 29' in time_str:
-                time_str = time_str.replace('Feb 29', 'Feb 28')
-            
-            # Try parsing with common formats
+            # Common formats
             formats = [
                 '%b %d, %I:%M %p',
                 '%Y-%m-%d %H:%M:%S',
@@ -38,46 +33,21 @@ def parse_timestamp(time_str):
             
             for fmt in formats:
                 try:
-                    dt = datetime.strptime(time_str, fmt)
-                    # If year is 1900, set it to 2024
-                    if dt.year == 1900:
-                        dt = dt.replace(year=2024)
-                    return dt
+                    return datetime.strptime(time_str, fmt)
                 except ValueError:
                     continue
                     
-        # Try pandas timestamp parsing as fallback
-        dt = pd.to_datetime(time_str)
-        if dt.year == 1900:
-            dt = dt.replace(year=2024)
-        return dt
+        return pd.to_datetime(time_str)
         
     except Exception as e:
         logger.warning(f"Error parsing timestamp {time_str}: {str(e)}")
         return None
-
-def validate_data(df, required_columns):
-    """Validate dataframe structure and content"""
-    # Check required columns
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
-        
-    # Remove rows with all NaN values
-    df = df.dropna(how='all')
-    
-    # Remove rows where required columns are NaN
-    df = df.dropna(subset=required_columns)
-    
-    return df
 
 def import_applications():
     """Import applications data"""
     try:
         df = pd.read_csv('appex.csv')
         logger.info(f"Reading applications data: {len(df)} rows")
-        
-        df = validate_data(df, ['Application Name', 'Package Name', 'Installed Date'])
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -109,8 +79,6 @@ def import_calls():
         df = pd.read_csv('callex.csv')
         logger.info(f"Reading call logs: {len(df)} rows")
         
-        df = validate_data(df, ['Call type', 'Time', 'From/To'])
-        
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 for _, row in df.iterrows():
@@ -139,8 +107,6 @@ def import_chats():
     try:
         df = pd.read_csv('chatex.csv')
         logger.info(f"Reading chat messages: {len(df)} rows")
-        
-        df = validate_data(df, ['Messenger', 'Time', 'Sender', 'Text'])
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -171,8 +137,6 @@ def import_contacts():
         df = pd.read_csv('Contactsex.csv')
         logger.info(f"Reading contacts: {len(df)} rows")
         
-        df = validate_data(df, ['Name'])
-        
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 for _, row in df.iterrows():
@@ -201,8 +165,6 @@ def import_keylogs():
         df = pd.read_csv('keyex.csv')
         logger.info(f"Reading keylogs: {len(df)} rows")
         
-        df = validate_data(df, ['Application', 'Time', 'Text'])
-        
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 for _, row in df.iterrows():
@@ -229,8 +191,6 @@ def import_sms():
     try:
         df = pd.read_csv('smsex.csv')
         logger.info(f"Reading SMS messages: {len(df)} rows")
-        
-        df = validate_data(df, ['From/To', 'Text', 'Time'])
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:
