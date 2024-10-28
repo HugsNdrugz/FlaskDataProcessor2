@@ -4,173 +4,171 @@ class ChatInterface {
     constructor() {
         this.currentContact = null;
         this.elements = {};
-        this.retryCount = 0;
-        this.maxRetries = 3;
         this.socket = null;
         
         document.addEventListener('DOMContentLoaded', () => this.init());
     }
 
-    handleError(error) {
-        console.error('Error:', error);
-        if (this.retryCount < this.maxRetries) {
-            this.retryCount++;
-            console.log(`Retrying (${this.retryCount}/${this.maxRetries})...`);
-            setTimeout(() => this.init(), 2000 * this.retryCount);
-        } else {
-            const messagesList = document.querySelector('.messages-list');
-            if (messagesList) {
-                messagesList.innerHTML = '<div class="alert alert-danger">Connection failed. Please refresh the page.</div>';
-            }
-        }
-    }
-
     async init() {
         try {
             await this.cacheElements();
-            await this.initializeTheme();
+            this.initializeSocket();
             this.bindEvents();
-            this.retryCount = 0;
+            this.initializeTheme();
         } catch (error) {
-            this.handleError(error);
+            console.error('Initialization error:', error);
         }
+    }
+
+    initializeSocket() {
+        this.socket = io(window.location.origin, {
+            transports: ['websocket'],
+            upgrade: false
+        });
+
+        this.socket.on('connect', () => {
+            console.log('Connected to WebSocket');
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from WebSocket');
+        });
+
+        this.socket.on('message_update', (data) => {
+            if (this.currentContact && data.contact === this.currentContact) {
+                this.loadMessages(this.currentContact);
+            }
+        });
     }
 
     async cacheElements() {
-        const selectors = {
-            contactsView: '#contactsView',
-            chatView: '#chatView',
-            contacts: '.contact-item',
-            backButton: '.back-button',
-            themeToggle: '.theme-toggle',
-            themeIcon: '.theme-toggle i',
-            messagesList: '.messages-list',
-            chatContactName: '#chatView .contact-name'
+        this.elements = {
+            contactsView: document.querySelector('#contactsView'),
+            chatView: document.querySelector('#chatView'),
+            contacts: document.querySelectorAll('.contact-item'),
+            backButton: document.querySelector('.back-button'),
+            themeToggle: document.querySelector('.theme-toggle'),
+            themeIcon: document.querySelector('.theme-toggle i'),
+            messagesList: document.querySelector('.messages-list'),
+            chatContactName: document.querySelector('#chatView .contact-name')
         };
-
-        for (const [key, selector] of Object.entries(selectors)) {
-            this.elements[key] = key === 'contacts' 
-                ? document.querySelectorAll(selector)
-                : document.querySelector(selector);
-            
-            if (!this.elements[key] && key !== 'contacts') {
-                console.warn(`Element not found: ${selector}`);
-            }
-        }
     }
 
     bindEvents() {
-        if (this.elements.contacts?.length) {
-            this.elements.contacts.forEach(contact => {
-                contact?.addEventListener('click', (e) => this.handleContactClick(e));
-            });
-        }
+        this.elements.contacts?.forEach(contact => {
+            contact?.addEventListener('click', (e) => this.handleContactClick(e));
+        });
 
         this.elements.backButton?.addEventListener('click', () => this.handleBack());
         this.elements.themeToggle?.addEventListener('click', () => this.toggleTheme());
     }
 
-    async initializeTheme() {
-        try {
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            await this.updateThemeIcon(savedTheme);
-        } catch (error) {
-            console.error('Error initializing theme:', error);
-        }
+    initializeTheme() {
+        const theme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-bs-theme', theme);
+        this.updateThemeIcon(theme);
     }
 
-    async updateThemeIcon(theme) {
-        const iconElement = this.elements.themeIcon;
-        if (!iconElement) return;
-
-        iconElement.classList.remove('bi-sun-fill', 'bi-moon-fill');
-        iconElement.classList.add(theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill');
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-bs-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        this.updateThemeIcon(newTheme);
     }
 
-    async toggleTheme() {
-        try {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            await this.updateThemeIcon(newTheme);
-        } catch (error) {
-            console.error('Error toggling theme:', error);
+    updateThemeIcon(theme) {
+        if (this.elements.themeIcon) {
+            this.elements.themeIcon.className = theme === 'dark' 
+                ? 'bi bi-sun-fill' 
+                : 'bi bi-moon-fill';
         }
     }
 
     async handleContactClick(event) {
+        const contactElement = event.currentTarget;
+        const contactName = contactElement.dataset.contact;
+        
+        if (!contactName) return;
+
+        if (this.currentContact) {
+            this.socket.emit('leave', { contact: this.currentContact });
+        }
+
+        this.currentContact = contactName;
+        this.socket.emit('join', { contact: contactName });
+        
+        if (this.elements.chatContactName) {
+            this.elements.chatContactName.textContent = contactName;
+        }
+        
+        this.elements.contactsView?.classList.add('d-none');
+        this.elements.chatView?.classList.remove('d-none');
+        
         try {
-            const contactElement = event.currentTarget;
-            if (!contactElement) return;
-
-            const contact = contactElement.dataset.contact;
-            const contactNameElement = contactElement.querySelector('.contact-name');
-            const contactName = contactNameElement?.textContent;
-
-            if (!contact || !contactName) return;
-
-            this.currentContact = contact;
-            
-            if (this.elements.chatContactName) {
-                this.elements.chatContactName.textContent = contactName;
-            }
-
-            this.elements.contactsView?.classList.remove('active');
-            this.elements.chatView?.classList.add('active');
-
-            await this.loadMessages(contact);
+            await this.loadMessages(contactName);
         } catch (error) {
-            console.error('Error handling contact click:', error);
+            console.error('Failed to load messages:', error);
+            this.elements.messagesList.innerHTML = `
+                <div class="alert alert-danger">
+                    Failed to load messages. Please try again.
+                </div>
+            `;
         }
     }
 
     handleBack() {
-        this.elements.chatView?.classList.remove('active');
-        this.elements.contactsView?.classList.add('active');
+        if (this.currentContact) {
+            this.socket.emit('leave', { contact: this.currentContact });
+        }
         this.currentContact = null;
+        this.elements.chatView?.classList.add('d-none');
+        this.elements.contactsView?.classList.remove('d-none');
+        this.elements.messagesList.innerHTML = '';
     }
 
     async loadMessages(contact) {
         try {
-            const response = await fetch(`/messages/${encodeURIComponent(contact)}`);
+            const response = await fetch(`/messages/${contact}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const messages = await response.json();
-            
-            if (this.elements.messagesList) {
-                const messagesHTML = messages
-                    .map(msg => this.createMessageBubble(msg))
-                    .join('');
-                this.elements.messagesList.innerHTML = messagesHTML;
-                this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
-            }
+            this.displayMessages(messages);
         } catch (error) {
             console.error('Error loading messages:', error);
-            if (this.elements.messagesList) {
-                this.elements.messagesList.innerHTML = '<div class="alert alert-danger">Failed to load messages</div>';
-            }
+            throw error;
+        }
+    }
+
+    displayMessages(messages) {
+        if (!this.elements.messagesList) return;
+        
+        this.elements.messagesList.innerHTML = '';
+        messages.forEach(message => {
+            const messageHTML = this.createMessageBubble(message);
+            this.elements.messagesList.insertAdjacentHTML('beforeend', messageHTML);
+        });
+        
+        this.scrollToBottom();
+    }
+
+    scrollToBottom() {
+        if (this.elements.messagesList) {
+            this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
         }
     }
 
     createMessageBubble(message) {
-        try {
-            const formattedTime = new Date(message.time).toLocaleString();
-            const bubbleClass = message.sender === this.currentContact ? 'incoming' : 'outgoing';
-            
-            return `
-                <div class="message-bubble message-bubble--${bubbleClass}">
-                    <div class="message-text">${this.escapeHtml(message.text || '')}</div>
-                    <time class="message-time" datetime="${message.time}">${formattedTime}</time>
-                </div>
-            `.trim();
-        } catch (error) {
-            console.error('Error creating message bubble:', error);
-            return '';
-        }
+        const formattedTime = new Date(message.time).toLocaleString();
+        const bubbleClass = message.sender === this.currentContact ? 'incoming' : 'outgoing';
+        
+        return `
+            <div class="message-bubble message-bubble--${bubbleClass}">
+                <div class="message-text">${this.escapeHtml(message.text || '')}</div>
+                <time class="message-time" datetime="${message.time}">${formattedTime}</time>
+            </div>
+        `.trim();
     }
 
     escapeHtml(text) {
@@ -180,17 +178,11 @@ class ChatInterface {
     }
 }
 
-// Initialize the chat interface
-const initializeChat = () => {
-    try {
-        window.chatInterface = new ChatInterface();
-    } catch (error) {
-        console.error('Error creating ChatInterface:', error);
-    }
-};
-
+// Initialize when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeChat);
+    document.addEventListener('DOMContentLoaded', () => {
+        window.chatInterface = new ChatInterface();
+    });
 } else {
-    initializeChat();
+    window.chatInterface = new ChatInterface();
 }

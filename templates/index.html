@@ -1,50 +1,46 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger</title>
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-</head>
-<body>
-    <div class="container-fluid h-100">
-        <div id="contactsView" class="view active">
-            <div class="header">
-                <h1>Messages</h1>
-                <button class="theme-toggle btn btn-link">
-                    <i class="bi bi-moon-fill"></i>
-                </button>
-            </div>
-            <div class="contacts-list">
-                {% for contact in contacts %}
-                <div class="contact-item" data-contact="{{ contact.sender }}">
-                    <div class="contact-info">
-                        <span class="contact-name">{{ contact.sender }}</span>
-                        <span class="last-message">{{ contact.text }}</span>
-                    </div>
-                    <span class="message-time">{{ contact.time }}</span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
+{% extends "base.html" %}
 
-        <div id="chatView" class="view">
-            <div class="header">
-                <button class="back-button btn btn-link">
-                    <i class="bi bi-arrow-left"></i>
-                </button>
-                <span class="contact-name"></span>
-                <button class="theme-toggle btn btn-link">
-                    <i class="bi bi-moon-fill"></i>
-                </button>
+{% block content %}
+<div class="container-fluid vh-100 d-flex flex-column p-0">
+    <!-- Contacts View -->
+    <div id="contactsView" class="flex-grow-1">
+        <div class="header bg-dark p-3 d-flex justify-content-between align-items-center">
+            <h1 class="h4 mb-0">Messages</h1>
+            <button class="theme-toggle btn btn-outline-light">
+                <i class="bi bi-moon-fill"></i>
+            </button>
+        </div>
+        <div class="contacts-list p-2">
+            {% for contact in contacts %}
+            <div class="contact-item" data-contact="{{ contact.name }}">
+                <div class="d-flex justify-content-between align-items-start p-2 border-bottom">
+                    <div>
+                        <h5 class="mb-1">{{ contact.name }}</h5>
+                        <p class="mb-1 text-truncate">{{ contact.lastMessage }}</p>
+                    </div>
+                    <small class="text-muted">{{ contact.time }}</small>
+                </div>
             </div>
-            <div class="messages-list"></div>
+            {% endfor %}
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-</body>
-</html>
+    <!-- Chat View -->
+    <div id="chatView" class="flex-grow-1 d-none">
+        <div class="header bg-dark p-3 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <button class="back-button btn btn-link text-light me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <h2 class="h5 mb-0 contact-name">Contact Name</h2>
+            </div>
+            <button class="theme-toggle btn btn-outline-light">
+                <i class="bi bi-moon-fill"></i>
+            </button>
+        </div>
+        <div class="messages-container flex-grow-1 overflow-auto p-3">
+            <div class="messages-list"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
