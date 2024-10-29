@@ -1,5 +1,3 @@
-'use strict';
-
 class ChatInterface {
     constructor() {
         // Initialize properties
@@ -14,10 +12,10 @@ class ChatInterface {
         this.handleContactClick = this.handleContactClick.bind(this);
         this.handleBack = this.handleBack.bind(this);
         this.toggleTheme = this.toggleTheme.bind(this);
-        this.parseTimestamp = this.parseTimestamp.bind(this);
         this.formatMessageTime = this.formatMessageTime.bind(this);
         this.createMessageBubble = this.createMessageBubble.bind(this);
         this.loadMessages = this.loadMessages.bind(this);
+        this.loadMoreMessages = this.loadMoreMessages.bind(this);
         this.initializeElements = this.initializeElements.bind(this);
         this.updateOnlineStatus = this.updateOnlineStatus.bind(this);
         
@@ -48,8 +46,75 @@ class ChatInterface {
             messagesContainer: document.querySelector('.messages-container'),
             searchInput: document.querySelector('.search-input'),
             chatHeader: document.querySelector('.chat-header .contact-name'),
-            onlineStatus: document.querySelector('.online-status')
+            onlineStatus: document.querySelector('.online-status'),
+            loadingSpinner: document.querySelector('.loading-spinner')
         };
+    }
+
+    loadMoreMessages() {
+        if (this.isLoadingMore || !this.currentContact || !this.oldestMessageTime) return;
+        
+        this.isLoadingMore = true;
+        const loadingSpinner = document.createElement('div');
+        loadingSpinner.className = 'loading-spinner';
+        loadingSpinner.innerHTML = `
+            <div class="loading-dots">
+                <span></span><span></span><span></span>
+            </div>
+        `;
+        
+        this.elements.messagesList.insertBefore(loadingSpinner, this.elements.messagesList.firstChild);
+        
+        const scrollHeight = this.elements.messagesContainer.scrollHeight;
+        
+        fetch(`/messages/${encodeURIComponent(this.currentContact)}?before=${this.oldestMessageTime}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to load messages');
+                return response.json();
+            })
+            .then(messages => {
+                loadingSpinner.remove();
+                if (messages && messages.length > 0) {
+                    const messageGroups = this.createMessageGroup(messages);
+                    const fragment = document.createDocumentFragment();
+                    
+                    messageGroups.forEach(group => {
+                        const groupDiv = document.createElement('div');
+                        groupDiv.className = 'message-group';
+                        
+                        group.forEach((message, index) => {
+                            const bubble = this.createMessageBubble(
+                                message,
+                                index === 0,
+                                index === group.length - 1
+                            );
+                            groupDiv.appendChild(bubble);
+                        });
+                        
+                        fragment.appendChild(groupDiv);
+                    });
+                    
+                    this.elements.messagesList.insertBefore(fragment, this.elements.messagesList.firstChild);
+                    this.oldestMessageTime = messages[0].time;
+                    
+                    // Maintain scroll position
+                    const newScrollHeight = this.elements.messagesContainer.scrollHeight;
+                    this.elements.messagesContainer.scrollTop = newScrollHeight - scrollHeight;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading more messages:', error);
+                loadingSpinner.remove();
+                // Show error toast
+                const errorToast = document.createElement('div');
+                errorToast.className = 'error-toast';
+                errorToast.textContent = 'Failed to load messages';
+                document.body.appendChild(errorToast);
+                setTimeout(() => errorToast.remove(), 3000);
+            })
+            .finally(() => {
+                this.isLoadingMore = false;
+            });
     }
 
     parseTimestamp(timeStr) {
@@ -63,10 +128,8 @@ class ChatInterface {
         }
     }
 
-    formatMessageTime(timestamp) {
-        const date = this.parseTimestamp(timestamp);
-        if (!date) return '';
-
+    formatMessageTime(timeStr) {
+        const date = this.parseTimestamp(timeStr);
         const now = new Date();
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
@@ -140,20 +203,26 @@ class ChatInterface {
     }
 
     loadMessages(contact) {
-        if (!this.elements.messagesList) return;
+        if (!contact) return;
+        
+        this.elements.messagesList.innerHTML = '';
+        this.elements.chatHeader.textContent = contact;
+        this.elements.messagesContainer.scrollTop = 0;
+        this.oldestMessageTime = null;
+        this.isLoadingMore = false;
 
-        this.elements.messagesList.innerHTML = `
-            <div class="loading-spinner">
-                <div class="loading-dots">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
-        `;
+        const loadingSpinner = document.createElement('div');
+        loadingSpinner.className = 'loading-spinner centered';
+        loadingSpinner.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+        this.elements.messagesList.appendChild(loadingSpinner);
 
-        fetch(`/messages/${contact}`)
-            .then(response => response.json())
+        fetch(`/messages/${encodeURIComponent(contact)}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to load messages');
+                return response.json();
+            })
             .then(messages => {
-                this.elements.messagesList.innerHTML = '';
+                loadingSpinner.remove();
                 if (!messages || messages.length === 0) {
                     this.elements.messagesList.innerHTML = '<div class="no-messages">No messages yet</div>';
                     return;
@@ -184,26 +253,20 @@ class ChatInterface {
             })
             .catch(error => {
                 console.error('Error loading messages:', error);
-                this.elements.messagesList.innerHTML = '<div class="error">Error loading messages</div>';
+                loadingSpinner.remove();
+                this.elements.messagesList.innerHTML = '<div class="error-message">Failed to load messages</div>';
             });
     }
 
     handleContactClick(event) {
         const contactElement = event.currentTarget;
         const contact = contactElement.dataset.contact;
-        if (!contact) return;
-
-        this.elements.contacts?.forEach(c => c.classList.remove('active'));
-        contactElement.classList.add('active');
+        
+        if (contact === this.currentContact) return;
+        
         this.currentContact = contact;
-        
-        if (this.elements.chatHeader) {
-            this.elements.chatHeader.textContent = contactElement.querySelector('.contact-name').textContent;
-        }
-
-        this.elements.contactsView?.classList.add('hidden');
         this.elements.chatView?.classList.add('active');
-        
+        this.elements.contactsView?.classList.add('hidden');
         this.loadMessages(contact);
     }
 
@@ -230,24 +293,15 @@ class ChatInterface {
     }
 
     initializeTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'dark';
+        const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
-        this.updateThemeIcon(savedTheme);
     }
 
     toggleTheme() {
         const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
-        this.updateThemeIcon(newTheme);
-    }
-
-    updateThemeIcon(theme) {
-        const icon = this.elements.themeToggle?.querySelector('i');
-        if (icon) {
-            icon.className = theme === 'dark' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
-        }
     }
 
     escapeHTML(str) {
@@ -283,6 +337,4 @@ class ChatInterface {
 }
 
 // Initialize the chat interface
-document.addEventListener('DOMContentLoaded', () => {
-    window.chatInterface = new ChatInterface();
-});
+new ChatInterface();
