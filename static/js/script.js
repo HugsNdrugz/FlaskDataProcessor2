@@ -4,11 +4,12 @@ class ChatInterface {
     constructor() {
         // Initialize properties
         this.currentContact = null;
-        this.elements = {};
         this.messageCache = new Map();
         this.isLoadingMore = false;
-
-        // Bind methods
+        this.oldestMessageTime = null;
+        this.messageGroups = new Map();
+        
+        // Bind methods to preserve context
         this.handleScroll = this.handleScroll.bind(this);
         this.handleContactClick = this.handleContactClick.bind(this);
         this.handleBack = this.handleBack.bind(this);
@@ -17,9 +18,9 @@ class ChatInterface {
         this.formatMessageTime = this.formatMessageTime.bind(this);
         this.createMessageBubble = this.createMessageBubble.bind(this);
         this.loadMessages = this.loadMessages.bind(this);
-        this.escapeHTML = this.escapeHTML.bind(this);
-        this.initializeSearch = this.initializeSearch.bind(this);
-
+        this.initializeElements = this.initializeElements.bind(this);
+        this.updateOnlineStatus = this.updateOnlineStatus.bind(this);
+        
         // Initialize on DOM load
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
@@ -29,73 +30,33 @@ class ChatInterface {
     }
 
     init() {
-        this.cacheElements();
+        this.initializeElements();
         this.bindEvents();
         this.initializeTheme();
-        this.initializeSearch();
+        this.updateOnlineStatus();
+        setInterval(this.updateOnlineStatus, 60000); // Update online status every minute
     }
 
-    cacheElements() {
-        const selectors = {
-            contactsView: '#contactsView',
-            chatView: '#chatView',
-            contacts: '.contact-item',
-            backButton: '.back-button',
-            themeToggle: '.theme-toggle',
-            messagesList: '.messages-list',
-            messagesContainer: '.messages-container',
-            searchInput: '.search-input',
-            chatHeader: '.chat-header .contact-name'
+    initializeElements() {
+        this.elements = {
+            contactsView: document.querySelector('#contactsView'),
+            chatView: document.querySelector('#chatView'),
+            contacts: document.querySelectorAll('.contact-item'),
+            backButton: document.querySelector('.back-button'),
+            themeToggle: document.querySelector('.theme-toggle'),
+            messagesList: document.querySelector('.messages-list'),
+            messagesContainer: document.querySelector('.messages-container'),
+            searchInput: document.querySelector('.search-input'),
+            chatHeader: document.querySelector('.chat-header .contact-name'),
+            onlineStatus: document.querySelector('.online-status')
         };
-
-        for (const [key, selector] of Object.entries(selectors)) {
-            this.elements[key] = key === 'contacts' 
-                ? document.querySelectorAll(selector)
-                : document.querySelector(selector);
-        }
     }
 
     parseTimestamp(timeStr) {
+        if (!timeStr) return null;
         try {
-            if (!timeStr) return null;
-
-            // Handle time-only format (HH:MM AM/PM)
-            const timeOnlyRegex = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
-            const timeOnlyMatch = timeStr.match(timeOnlyRegex);
-            if (timeOnlyMatch) {
-                const [_, hours, minutes, period] = timeOnlyMatch;
-                const date = new Date();
-                let hour = parseInt(hours, 10);
-                
-                if (period.toLowerCase() === 'pm' && hour < 12) {
-                    hour += 12;
-                } else if (period.toLowerCase() === 'am' && hour === 12) {
-                    hour = 0;
-                }
-                
-                date.setHours(hour, parseInt(minutes, 10), 0);
-                return date;
-            }
-
-            // Handle date with time format
-            const dateTimeRegex = /^([A-Za-z]+\s+\d{1,2}),\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
-            const match = timeStr.match(dateTimeRegex);
-            if (match) {
-                const [_, dateStr, hours, minutes, period] = match;
-                const currentYear = new Date().getFullYear();
-                const fullDateStr = `${dateStr}, ${currentYear} ${hours}:${minutes} ${period}`;
-                const parsedDate = new Date(fullDateStr);
-                if (!isNaN(parsedDate.getTime())) {
-                    return parsedDate;
-                }
-            }
-
-            const parsedDate = new Date(timeStr);
-            if (!isNaN(parsedDate.getTime())) {
-                return parsedDate;
-            }
-
-            return new Date();
+            const date = new Date(timeStr);
+            return isNaN(date.getTime()) ? new Date() : date;
         } catch (error) {
             console.error('Error parsing timestamp:', error);
             return new Date();
@@ -109,14 +70,16 @@ class ChatInterface {
         const now = new Date();
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
-
+        
+        const timeOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+        
         if (date.toDateString() === now.toDateString()) {
-            return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+            return date.toLocaleTimeString([], timeOptions);
         } else if (date.toDateString() === yesterday.toDateString()) {
-            return 'Yesterday ' + date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+            return 'Yesterday ' + date.toLocaleTimeString([], timeOptions);
         } else {
-            return date.toLocaleDateString([], { 
-                month: 'short', 
+            return date.toLocaleDateString([], {
+                month: 'short',
                 day: 'numeric',
                 hour: 'numeric',
                 minute: '2-digit',
@@ -125,43 +88,55 @@ class ChatInterface {
         }
     }
 
-    handleScroll() {
-        if (!this.elements.messagesContainer || this.isLoadingMore) return;
+    createMessageGroup(messages) {
+        const groups = [];
+        let currentGroup = [];
+        let lastSender = null;
+        let lastTime = null;
 
-        const { scrollTop } = this.elements.messagesContainer;
-        if (scrollTop <= 100 && this.currentContact) {
-            this.loadMoreMessages();
+        messages.forEach(message => {
+            const messageTime = this.parseTimestamp(message.time);
+            const timeDiff = lastTime ? (messageTime - lastTime) / 1000 / 60 : 0;
+
+            if (lastSender !== message.sender || timeDiff > 2) {
+                if (currentGroup.length > 0) {
+                    groups.push(currentGroup);
+                }
+                currentGroup = [message];
+            } else {
+                currentGroup.push(message);
+            }
+
+            lastSender = message.sender;
+            lastTime = messageTime;
+        });
+
+        if (currentGroup.length > 0) {
+            groups.push(currentGroup);
         }
+
+        return groups;
     }
 
-    loadMoreMessages() {
-        if (this.isLoadingMore || !this.currentContact) return;
-        this.isLoadingMore = true;
+    createMessageBubble(message, isFirstInGroup, isLastInGroup) {
+        const bubble = document.createElement('div');
+        const isSender = message.sender === this.currentContact;
+        bubble.className = `message-bubble message-bubble--${isSender ? 'incoming' : 'outgoing'}`;
+        
+        if (isFirstInGroup) bubble.classList.add('first-in-group');
+        if (isLastInGroup) bubble.classList.add('last-in-group');
 
-        const loadingIndicator = document.createElement('div');
-        loadingIndicator.className = 'loading-spinner';
-        loadingIndicator.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-        this.elements.messagesList.insertBefore(loadingIndicator, this.elements.messagesList.firstChild);
+        const formattedTime = this.formatMessageTime(message.time);
+        
+        bubble.innerHTML = `
+            <div class="message-text">${this.escapeHTML(message.text)}</div>
+            ${isLastInGroup ? `
+                <time class="message-time" datetime="${message.time}">${formattedTime}</time>
+                ${!isSender ? '<div class="message-status">Sent · Delivered · Read</div>' : ''}
+            ` : ''}
+        `;
 
-        fetch(`/messages/${this.currentContact}?before=${this.oldestMessageTime}`)
-            .then(response => response.json())
-            .then(messages => {
-                loadingIndicator.remove();
-                if (messages && messages.length > 0) {
-                    messages.forEach(message => {
-                        const bubble = this.createMessageBubble(message);
-                        this.elements.messagesList.insertBefore(bubble, this.elements.messagesList.firstChild);
-                    });
-                    this.oldestMessageTime = messages[0].time;
-                }
-            })
-            .catch(error => {
-                console.error('Error loading more messages:', error);
-                loadingIndicator.remove();
-            })
-            .finally(() => {
-                this.isLoadingMore = false;
-            });
+        return bubble;
     }
 
     loadMessages(contact) {
@@ -184,10 +159,26 @@ class ChatInterface {
                     return;
                 }
 
-                messages.forEach(message => {
-                    const bubble = this.createMessageBubble(message);
-                    this.elements.messagesList.appendChild(bubble);
+                const messageGroups = this.createMessageGroup(messages);
+                const fragment = document.createDocumentFragment();
+
+                messageGroups.forEach(group => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'message-group';
+
+                    group.forEach((message, index) => {
+                        const bubble = this.createMessageBubble(
+                            message,
+                            index === 0,
+                            index === group.length - 1
+                        );
+                        groupDiv.appendChild(bubble);
+                    });
+
+                    fragment.appendChild(groupDiv);
                 });
+
+                this.elements.messagesList.appendChild(fragment);
                 this.elements.messagesContainer.scrollTop = this.elements.messagesContainer.scrollHeight;
                 this.oldestMessageTime = messages[0].time;
             })
@@ -195,27 +186,6 @@ class ChatInterface {
                 console.error('Error loading messages:', error);
                 this.elements.messagesList.innerHTML = '<div class="error">Error loading messages</div>';
             });
-    }
-
-    createMessageBubble(message) {
-        const bubble = document.createElement('div');
-        const isSender = message.sender === this.currentContact;
-        bubble.className = `message-bubble message-bubble--${isSender ? 'incoming' : 'outgoing'}`;
-        
-        const formattedTime = this.formatMessageTime(message.time);
-        bubble.innerHTML = `
-            <div class="message-text">${this.escapeHTML(message.text)}</div>
-            <time class="message-time" datetime="${message.time}">${formattedTime}</time>
-            ${!isSender ? '<div class="message-status">Sent</div>' : ''}
-        `;
-        
-        return bubble;
-    }
-
-    escapeHTML(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
     }
 
     handleContactClick(event) {
@@ -240,25 +210,23 @@ class ChatInterface {
     handleBack() {
         this.elements.chatView?.classList.remove('active');
         this.elements.contactsView?.classList.remove('hidden');
-        this.elements.contacts?.forEach(c => c.classList.remove('active'));
         this.currentContact = null;
     }
 
-    initializeSearch() {
-        if (!this.elements.searchInput) return;
+    handleScroll() {
+        if (!this.elements.messagesContainer || this.isLoadingMore) return;
 
-        let searchTimeout;
-        this.elements.searchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                const query = e.target.value.toLowerCase();
-                this.elements.contacts?.forEach(contact => {
-                    const name = contact.querySelector('.contact-name')?.textContent.toLowerCase() || '';
-                    const preview = contact.querySelector('.contact-preview')?.textContent.toLowerCase() || '';
-                    contact.style.display = name.includes(query) || preview.includes(query) ? '' : 'none';
-                });
-            }, 300);
-        });
+        const { scrollTop } = this.elements.messagesContainer;
+        if (scrollTop <= 100 && this.currentContact) {
+            this.loadMoreMessages();
+        }
+    }
+
+    updateOnlineStatus() {
+        if (!this.elements.onlineStatus) return;
+        const randomStatus = Math.random() > 0.5;
+        this.elements.onlineStatus.textContent = randomStatus ? 'Active Now' : 'Active 2m ago';
+        this.elements.onlineStatus.className = `online-status ${randomStatus ? 'active' : ''}`;
     }
 
     initializeTheme() {
@@ -282,6 +250,12 @@ class ChatInterface {
         }
     }
 
+    escapeHTML(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
     bindEvents() {
         this.elements.contacts?.forEach(contact => {
             contact.addEventListener('click', this.handleContactClick);
@@ -290,6 +264,21 @@ class ChatInterface {
         this.elements.backButton?.addEventListener('click', this.handleBack);
         this.elements.themeToggle?.addEventListener('click', this.toggleTheme);
         this.elements.messagesContainer?.addEventListener('scroll', this.handleScroll);
+
+        if (this.elements.searchInput) {
+            let searchTimeout;
+            this.elements.searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const query = e.target.value.toLowerCase();
+                    this.elements.contacts?.forEach(contact => {
+                        const name = contact.querySelector('.contact-name')?.textContent.toLowerCase() || '';
+                        const preview = contact.querySelector('.contact-preview')?.textContent.toLowerCase() || '';
+                        contact.style.display = name.includes(query) || preview.includes(query) ? '' : 'none';
+                    });
+                }, 300);
+            });
+        }
     }
 }
 
