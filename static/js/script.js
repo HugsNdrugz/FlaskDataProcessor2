@@ -19,6 +19,9 @@ class ChatInterface {
             this.parseTimestamp = this.parseTimestamp.bind(this);
             this.updateOnlineStatus = this.updateOnlineStatus.bind(this);
             this.escapeHTML = this.escapeHTML.bind(this);
+            this.showLoadingState = this.showLoadingState.bind(this);
+            this.hideLoadingState = this.hideLoadingState.bind(this);
+            this.showError = this.showError.bind(this);
 
             // Initialize state
             this.currentContact = null;
@@ -50,7 +53,36 @@ class ChatInterface {
             console.log('Chat interface initialized successfully');
         } catch (error) {
             console.error('Error initializing chat interface:', error);
+            this.showError('Failed to initialize chat interface');
         }
+    }
+
+    showLoadingState(container) {
+        const loadingSpinner = document.createElement('div');
+        loadingSpinner.className = 'loading-spinner';
+        loadingSpinner.innerHTML = `
+            <div class="loading-overlay">
+                <div class="loading-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        `;
+        container.appendChild(loadingSpinner);
+        return loadingSpinner;
+    }
+
+    hideLoadingState(spinner) {
+        if (spinner && spinner.parentNode) {
+            spinner.parentNode.removeChild(spinner);
+        }
+    }
+
+    showError(message) {
+        const errorToast = document.createElement('div');
+        errorToast.className = 'error-toast';
+        errorToast.textContent = message;
+        document.body.appendChild(errorToast);
+        setTimeout(() => errorToast.remove(), 3000);
     }
 
     initializeElements() {
@@ -68,10 +100,9 @@ class ChatInterface {
                 chatHeader: document.querySelector('.chat-header .contact-name'),
                 onlineStatus: document.querySelector('.online-status'),
                 tabButtons: document.querySelectorAll('.nav-link'),
-                loadingSpinner: document.querySelector('.loading-spinner')
+                contactsList: document.querySelector('.contacts-list')
             };
 
-            // Debug log element initialization
             Object.entries(this.elements).forEach(([key, element]) => {
                 if (element === null) {
                     console.warn(`Element "${key}" not found in DOM`);
@@ -89,17 +120,14 @@ class ChatInterface {
         try {
             console.log('Binding events...');
             
-            // Contact clicks
             this.elements.contacts?.forEach(contact => {
                 contact.addEventListener('click', this.handleContactClick);
             });
 
-            // Navigation
             this.elements.backButton?.addEventListener('click', this.handleBack);
             this.elements.themeToggle?.addEventListener('click', this.toggleTheme);
             this.elements.messagesContainer?.addEventListener('scroll', this.handleScroll);
 
-            // Tab navigation
             this.elements.tabButtons?.forEach(button => {
                 button.addEventListener('click', (e) => {
                     this.elements.tabButtons.forEach(btn => btn.classList.remove('active'));
@@ -107,7 +135,6 @@ class ChatInterface {
                 });
             });
 
-            // Search functionality
             if (this.elements.searchInput) {
                 let searchTimeout;
                 this.elements.searchInput.addEventListener('input', (e) => {
@@ -117,7 +144,13 @@ class ChatInterface {
                         this.elements.contacts?.forEach(contact => {
                             const name = contact.querySelector('.contact-name')?.textContent.toLowerCase() || '';
                             const preview = contact.querySelector('.message-preview')?.textContent.toLowerCase() || '';
-                            contact.style.display = name.includes(query) || preview.includes(query) ? '' : 'none';
+                            const shouldShow = name.includes(query) || preview.includes(query);
+                            contact.style.display = shouldShow ? '' : 'none';
+                            if (shouldShow) {
+                                contact.style.animation = 'none';
+                                contact.offsetHeight;
+                                contact.style.animation = '';
+                            }
                         });
                     }, 300);
                 });
@@ -126,6 +159,7 @@ class ChatInterface {
             console.log('Events bound successfully');
         } catch (error) {
             console.error('Error binding events:', error);
+            this.showError('Failed to bind events');
         }
     }
 
@@ -139,12 +173,12 @@ class ChatInterface {
             console.log('Switching to contact:', contact);
             this.currentContact = contact;
             
-            // Update UI
             this.elements.chatView?.classList.add('active');
             this.elements.contactsView?.classList.add('hidden');
             this.loadMessages(contact);
         } catch (error) {
             console.error('Error handling contact click:', error);
+            this.showError('Failed to load chat');
         }
     }
 
@@ -177,18 +211,11 @@ class ChatInterface {
 
     loadMoreMessages() {
         if (this.isLoadingMore || !this.currentContact || !this.oldestMessageTime) {
-            console.log('Skipping loadMoreMessages - conditions not met');
             return;
         }
 
-        console.log('Loading more messages for:', this.currentContact);
         this.isLoadingMore = true;
-
-        const loadingSpinner = document.createElement('div');
-        loadingSpinner.className = 'loading-spinner';
-        loadingSpinner.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-        this.elements.messagesList.insertBefore(loadingSpinner, this.elements.messagesList.firstChild);
-
+        const loadingSpinner = this.showLoadingState(this.elements.messagesList);
         const scrollHeight = this.elements.messagesContainer.scrollHeight;
 
         fetch(`/messages/${encodeURIComponent(this.currentContact)}?before=${this.oldestMessageTime}`)
@@ -197,7 +224,7 @@ class ChatInterface {
                 return response.json();
             })
             .then(messages => {
-                loadingSpinner.remove();
+                this.hideLoadingState(loadingSpinner);
                 if (messages && messages.length > 0) {
                     const messageGroups = this.createMessageGroup(messages);
                     const fragment = document.createDocumentFragment();
@@ -223,7 +250,7 @@ class ChatInterface {
             })
             .catch(error => {
                 console.error('Error loading more messages:', error);
-                loadingSpinner.remove();
+                this.hideLoadingState(loadingSpinner);
                 this.showError('Failed to load messages');
             })
             .finally(() => {
@@ -231,12 +258,70 @@ class ChatInterface {
             });
     }
 
-    showError(message) {
-        const errorToast = document.createElement('div');
-        errorToast.className = 'error-toast';
-        errorToast.textContent = message;
-        document.body.appendChild(errorToast);
-        setTimeout(() => errorToast.remove(), 3000);
+    loadMessages(contact) {
+        if (!contact) return;
+        
+        console.log('Loading messages for contact:', contact);
+        this.elements.messagesList.innerHTML = '';
+        this.elements.chatHeader.textContent = contact;
+        this.elements.messagesContainer.scrollTop = 0;
+        this.oldestMessageTime = null;
+        this.isLoadingMore = false;
+
+        const loadingSpinner = this.showLoadingState(this.elements.messagesList);
+
+        fetch(`/messages/${encodeURIComponent(contact)}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to load messages');
+                return response.json();
+            })
+            .then(messages => {
+                this.hideLoadingState(loadingSpinner);
+                if (!messages || messages.length === 0) {
+                    this.elements.messagesList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-chat-text"></i>
+                            <p>No messages yet</p>
+                            <p>Start a conversation with ${contact}</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const messageGroups = this.createMessageGroup(messages);
+                const fragment = document.createDocumentFragment();
+
+                messageGroups.forEach(group => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'message-group';
+
+                    group.forEach((message, index) => {
+                        const bubble = this.createMessageBubble(
+                            message,
+                            index === 0,
+                            index === group.length - 1
+                        );
+                        groupDiv.appendChild(bubble);
+                    });
+
+                    fragment.appendChild(groupDiv);
+                });
+
+                this.elements.messagesList.appendChild(fragment);
+                this.elements.messagesContainer.scrollTop = this.elements.messagesContainer.scrollHeight;
+                this.oldestMessageTime = messages[0].time;
+            })
+            .catch(error => {
+                console.error('Error loading messages:', error);
+                this.hideLoadingState(loadingSpinner);
+                this.elements.messagesList.innerHTML = `
+                    <div class="error-state">
+                        <i class="bi bi-exclamation-circle"></i>
+                        <p>Failed to load messages</p>
+                        <p>Please try again later</p>
+                    </div>
+                `;
+            });
     }
 
     parseTimestamp(timeStr) {
@@ -326,63 +411,6 @@ class ChatInterface {
         return bubble;
     }
 
-    loadMessages(contact) {
-        if (!contact) return;
-        
-        console.log('Loading messages for contact:', contact);
-        this.elements.messagesList.innerHTML = '';
-        this.elements.chatHeader.textContent = contact;
-        this.elements.messagesContainer.scrollTop = 0;
-        this.oldestMessageTime = null;
-        this.isLoadingMore = false;
-
-        const loadingSpinner = document.createElement('div');
-        loadingSpinner.className = 'loading-spinner centered';
-        loadingSpinner.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-        this.elements.messagesList.appendChild(loadingSpinner);
-
-        fetch(`/messages/${encodeURIComponent(contact)}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to load messages');
-                return response.json();
-            })
-            .then(messages => {
-                loadingSpinner.remove();
-                if (!messages || messages.length === 0) {
-                    this.elements.messagesList.innerHTML = '<div class="no-messages">No messages yet</div>';
-                    return;
-                }
-
-                const messageGroups = this.createMessageGroup(messages);
-                const fragment = document.createDocumentFragment();
-
-                messageGroups.forEach(group => {
-                    const groupDiv = document.createElement('div');
-                    groupDiv.className = 'message-group';
-
-                    group.forEach((message, index) => {
-                        const bubble = this.createMessageBubble(
-                            message,
-                            index === 0,
-                            index === group.length - 1
-                        );
-                        groupDiv.appendChild(bubble);
-                    });
-
-                    fragment.appendChild(groupDiv);
-                });
-
-                this.elements.messagesList.appendChild(fragment);
-                this.elements.messagesContainer.scrollTop = this.elements.messagesContainer.scrollHeight;
-                this.oldestMessageTime = messages[0].time;
-            })
-            .catch(error => {
-                console.error('Error loading messages:', error);
-                loadingSpinner.remove();
-                this.elements.messagesList.innerHTML = '<div class="error-message">Failed to load messages</div>';
-            });
-    }
-
     updateOnlineStatus() {
         try {
             if (!this.elements.onlineStatus) return;
@@ -421,7 +449,6 @@ class ChatInterface {
     }
 }
 
-// Initialize the chat interface with proper error handling
 try {
     console.log('Creating new ChatInterface instance');
     window.chatInterface = new ChatInterface();

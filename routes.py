@@ -1,136 +1,126 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, current_app
 import logging
-from functools import wraps
+from models import test_db_connection
+import psycopg2
 from datetime import datetime
-from werkzeug.exceptions import BadRequest
-from cachetools import TTLCache
-import psycopg2.extras
-from models import get_db_connection
+import os
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
-)
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize cache with 5-minute TTL
-messages_cache = TTLCache(maxsize=100, ttl=300)
+bp = Blueprint('routes', __name__)
 
-routes = Blueprint('routes', __name__)
-
-def handle_errors(f):
-    """Decorator for consistent error handling"""
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except BadRequest as e:
-            logger.warning(f"Bad request: {str(e)}")
-            return jsonify({'error': str(e)}), 400
-        except psycopg2.Error as e:
-            logger.error(f"Database error: {str(e)}")
-            return render_template('index.html', contacts=[], error="Database error occurred")
-        except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            return render_template('index.html', contacts=[], error="An unexpected error occurred")
-    return wrapper
-
-@routes.route('/')
-@handle_errors
-def index():
-    """Get all contacts with their latest messages"""
-    query = """
-        WITH RankedMessages AS (
-            SELECT 
-                c.sender,
-                c.recipient,
-                c.time,
-                c.text,
-                ROW_NUMBER() OVER (PARTITION BY CASE 
-                    WHEN c.sender = 'user' THEN c.recipient 
-                    ELSE c.sender 
-                END ORDER BY c.time DESC) as rn
-            FROM chats c
-            WHERE c.sender IS NOT NULL
-        )
-        SELECT sender, recipient, time, text
-        FROM RankedMessages
-        WHERE rn = 1
-        ORDER BY time DESC
-    """
-    
+def get_db_connection():
     try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                cur.execute(query)
-                rows = cur.fetchall()
-                contacts = []
-                for row in rows:
-                    contact_name = row['recipient'] if row['sender'] == 'user' else row['sender']
-                    contacts.append({
-                        'sender': contact_name,
-                        'time': row['time'].strftime('%I:%M %p'),
-                        'text': row['text']
-                    })
-                return render_template('index.html', contacts=contacts)
+        conn = psycopg2.connect(
+            dbname=os.environ['PGDATABASE'],
+            user=os.environ['PGUSER'],
+            password=os.environ['PGPASSWORD'],
+            host=os.environ['PGHOST'],
+            port=os.environ['PGPORT']
+        )
+        return conn
+    except Exception as e:
+        logger.error(f"Database connection error: {str(e)}")
+        return None
+
+@bp.route('/')
+def index():
+    try:
+        # Test database connection
+        if not test_db_connection():
+            raise Exception("Database connection failed")
+
+        # Get database connection
+        conn = get_db_connection()
+        if not conn:
+            raise Exception("Could not establish database connection")
+
+        with conn.cursor() as cur:
+            # Get contacts with their latest message
+            cur.execute("""
+                WITH LatestMessages AS (
+                    SELECT 
+                        CASE 
+                            WHEN sender = 'user' THEN recipient
+                            ELSE sender 
+                        END as contact_name,
+                        text,
+                        time,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY 
+                                CASE 
+                                    WHEN sender = 'user' THEN recipient
+                                    ELSE sender 
+                                END
+                            ORDER BY time DESC
+                        ) as rn
+                    FROM chats
+                )
+                SELECT 
+                    c.name as name,
+                    COALESCE(lm.text, '') as last_message,
+                    COALESCE(lm.time, NOW()) as last_message_time,
+                    COUNT(CASE WHEN ch.read = false AND ch.recipient = 'user' THEN 1 END) as unread_count,
+                    CASE 
+                        WHEN c.last_active > NOW() - INTERVAL '5 minutes' THEN true
+                        ELSE false
+                    END as is_online
+                FROM contacts c
+                LEFT JOIN LatestMessages lm ON lm.contact_name = c.name AND lm.rn = 1
+                LEFT JOIN chats ch ON (ch.sender = c.name OR ch.recipient = c.name)
+                GROUP BY c.name, c.last_active, lm.text, lm.time
+                ORDER BY lm.time DESC NULLS LAST;
+            """)
+            
+            contacts = []
+            for row in cur.fetchall():
+                contacts.append({
+                    'name': row[0],
+                    'last_message': row[1],
+                    'last_message_time': row[2].strftime('%Y-%m-%d %H:%M:%S') if row[2] else None,
+                    'unread_count': row[3] or 0,
+                    'is_online': row[4]
+                })
+
+        conn.close()
+        return render_template('index.html', contacts=contacts)
+
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
-        return render_template('index.html', contacts=[], error="Unable to load contacts")
+        # Return template with empty contacts list in case of error
+        return render_template('index.html', contacts=[])
 
-@routes.route('/messages/<contact>')
-@handle_errors
+@bp.route('/messages/<contact>')
 def get_messages(contact):
-    """Get all messages for a specific contact"""
-    if not contact or not isinstance(contact, str) or len(contact) > 100:
-        raise BadRequest('Invalid contact parameter')
-    
-    cache_key = f'messages_{contact}'
-    if cache_key in messages_cache:
-        return jsonify(messages_cache[cache_key])
-    
-    query = """
-        SELECT sender, recipient, text, time
-        FROM chats 
-        WHERE (sender = %s AND recipient = 'user')
-           OR (sender = 'user' AND recipient = %s)
-        ORDER BY time ASC
-    """
-    
     try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                cur.execute(query, (contact, contact))
-                rows = cur.fetchall()
-                messages = [
-                    {
-                        'sender': row['sender'],
-                        'time': row['time'].strftime('%I:%M %p'),
-                        'text': row['text']
-                    }
-                    for row in rows
-                ]
-                
-                messages_cache[cache_key] = messages
-                return jsonify(messages)
-    except Exception as e:
-        logger.error(f"Error in get_messages route: {str(e)}")
-        return jsonify({'error': 'Unable to load messages'}), 500
+        conn = get_db_connection()
+        if not conn:
+            raise Exception("Could not establish database connection")
 
-@routes.route('/health')
-def health_check():
-    """Health check endpoint with connection pool monitoring"""
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute('SELECT 1')
-                cur.execute('SELECT count(*) FROM pg_stat_activity')
-                connection_count = cur.fetchone()[0]
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': datetime.utcnow(),
-            'active_connections': connection_count
-        })
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT sender, recipient, text, time
+                FROM chats
+                WHERE (sender = %s AND recipient = 'user')
+                   OR (sender = 'user' AND recipient = %s)
+                ORDER BY time DESC
+                LIMIT 50;
+            """, (contact, contact))
+            
+            messages = []
+            for row in cur.fetchall():
+                messages.append({
+                    'sender': row[0],
+                    'recipient': row[1],
+                    'text': row[2],
+                    'time': row[3].strftime('%Y-%m-%d %H:%M:%S')
+                })
+
+        conn.close()
+        return jsonify(messages)
+
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 503
+        logger.error(f"Error fetching messages: {str(e)}")
+        return jsonify({'error': 'Failed to fetch messages'}), 500
