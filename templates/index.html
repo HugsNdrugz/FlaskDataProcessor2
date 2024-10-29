@@ -1,56 +1,109 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Messenger</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body>
-    <div id="contactsView" class="active">
-        <div class="search-container">
-            <input type="text" class="search-input" placeholder="Search messages">
-        </div>
-        <div class="contact-list">
-            {% for contact in contacts %}
-            <div class="contact-item" data-contact="{{ contact.sender }}">
-                <div class="contact-avatar"></div>
-                <div class="contact-info">
-                    <div class="contact-header">
-                        <h2 class="contact-name">{{ contact.sender }}</h2>
-                        <span class="contact-time">{{ contact.time }}</span>
-                    </div>
-                    <p class="contact-preview">{{ contact.text }}</p>
+    <div class="app-container">
+        <!-- Contacts View -->
+        <div id="contactsView" class="contacts-view">
+            <div class="contacts-header">
+                <div class="d-flex justify-content-between align-items-center p-3">
+                    <h1 class="mb-0">Chats</h1>
+                    <button class="btn btn-icon settings-button">
+                        <i class="bi bi-gear-fill"></i>
+                    </button>
                 </div>
-                {% if contact.unread %}
-                <div class="unread-indicator"></div>
-                {% endif %}
+                <div class="search-bar p-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control search-input" placeholder="Search Messenger">
+                    </div>
+                </div>
+                <div class="tabs-container">
+                    <div class="nav nav-tabs" role="tablist">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#chats-tab" type="button">
+                            Chats
+                        </button>
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#calls-tab" type="button">
+                            Calls
+                        </button>
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#active-tab" type="button">
+                            Active
+                        </button>
+                    </div>
+                </div>
             </div>
-            {% endfor %}
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="chats-tab">
+                    <div class="contacts-list">
+                        {% for contact in contacts %}
+                        <div class="contact-item" data-contact="{{ contact.name }}">
+                            <div class="avatar">
+                                <img src="{{ url_for('static', filename='icons/default-avatar.png') }}" alt="{{ contact.name }}">
+                                {% if contact.is_online %}
+                                <span class="online-indicator"></span>
+                                {% endif %}
+                            </div>
+                            <div class="contact-info">
+                                <div class="contact-header">
+                                    <span class="contact-name">{{ contact.name }}</span>
+                                    <span class="message-time">{{ contact.last_message_time }}</span>
+                                </div>
+                                <div class="contact-preview">
+                                    <span class="message-preview">{{ contact.last_message }}</span>
+                                    {% if contact.unread_count > 0 %}
+                                    <span class="unread-badge">{{ contact.unread_count }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="calls-tab">
+                    <div class="p-4 text-center text-muted">
+                        No recent calls
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="active-tab">
+                    <div class="p-4 text-center text-muted">
+                        No active users
+                    </div>
+                </div>
+            </div>
         </div>
-        <button class="theme-toggle">
-            <i class="bi bi-moon-fill"></i>
-        </button>
-    </div>
 
-    <div id="chatView">
-        <div class="chat-container">
+        <!-- Chat View -->
+        <div id="chatView" class="chat-view">
             <div class="chat-header">
-                <button class="back-button">
+                <button class="btn btn-icon back-button">
                     <i class="bi bi-arrow-left"></i>
                 </button>
-                <h2 class="contact-name"></h2>
+                <div class="contact-info">
+                    <span class="contact-name"></span>
+                    <span class="online-status"></span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-icon theme-toggle">
+                        <i class="bi bi-moon-fill"></i>
+                    </button>
+                </div>
             </div>
             <div class="messages-container">
-                <div class="messages-list">
-                    <!-- Messages will be loaded here -->
-                </div>
+                <div class="messages-list"></div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
