@@ -1,22 +1,35 @@
 /* Theme-specific styles for Facebook Messenger */
 :root {
   /* Light theme variables */
-  --messenger-bg: var(--bs-body-bg);
-  --messenger-text: var(--bs-body-color);
-  --messenger-border: var(--bs-border-color);
-  --messenger-hover: var(--bs-secondary-bg);
-  --messenger-active: var(--bs-tertiary-bg);
-  --messenger-primary: var(--bs-primary);
-  --messenger-secondary: var(--bs-secondary);
+  --messenger-primary: #0084ff;
+  --messenger-secondary: #e4e6eb;
+  --messenger-text: #050505;
+  --messenger-text-secondary: #65676b;
+  --messenger-bg: #ffffff;
+  --messenger-bg-secondary: #f0f2f5;
+  --messenger-border: #dadde1;
+  --messenger-hover: #f2f2f2;
+  --messenger-active: #e5e5e5;
+  --messenger-message-in: #e4e6eb;
+  --messenger-message-out: #0084ff;
+  --messenger-message-out-text: #ffffff;
+  --messenger-search-bg: #f0f2f5;
 }
 
 [data-bs-theme="dark"] {
   --messenger-primary: #0084ff;
   --messenger-secondary: #3a3b3c;
-  --messenger-text: var(--bs-body-color);
-  --messenger-border: var(--bs-border-color);
-  --messenger-hover: var(--bs-secondary-bg);
-  --messenger-active: var(--bs-tertiary-bg);
+  --messenger-text: #e4e6eb;
+  --messenger-text-secondary: #b0b3b8;
+  --messenger-bg: #242526;
+  --messenger-bg-secondary: #18191a;
+  --messenger-border: #393a3b;
+  --messenger-hover: #303031;
+  --messenger-active: #3a3b3c;
+  --messenger-message-in: #3a3b3c;
+  --messenger-message-out: #0084ff;
+  --messenger-message-out-text: #ffffff;
+  --messenger-search-bg: #3a3b3c;
 }
 
 /* Theme-specific component styles */
@@ -40,58 +53,62 @@
 }
 
 .message-bubble {
-  border: 1px solid var(--messenger-border);
+  border: none;
 }
 
 .message-bubble--incoming {
-  background: var(--messenger-hover);
+  background: var(--messenger-message-in);
   color: var(--messenger-text);
 }
 
 .message-bubble--outgoing {
-  background: var(--messenger-primary);
-  color: #fff;
+  background: var(--messenger-message-out);
+  color: var(--messenger-message-out-text);
 }
 
 /* Enhanced search bar */
 .search-input {
-  background: var(--messenger-hover);
+  background: var(--messenger-search-bg) !important;
   color: var(--messenger-text);
-  border: 1px solid var(--messenger-border);
+  border: none !important;
 }
 
 .search-input:focus {
-  background: var(--messenger-active);
-  border-color: var(--messenger-primary);
+  background: var(--messenger-search-bg) !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
-/* Improved message input */
+/* Message input */
 .message-input-container {
   border-top: 1px solid var(--messenger-border);
-  padding: 1rem;
+  padding: 12px 16px;
   background: var(--messenger-bg);
 }
 
 .message-input {
-  background: var(--messenger-hover) !important;
+  background: var(--messenger-search-bg) !important;
   color: var(--messenger-text) !important;
-  border: 1px solid var(--messenger-border) !important;
+  border: none !important;
   border-radius: 20px !important;
+  padding: 8px 12px !important;
+  line-height: 20px !important;
 }
 
 .message-input:focus {
-  background: var(--messenger-active) !important;
-  border-color: var(--messenger-primary) !important;
+  background: var(--messenger-search-bg) !important;
   box-shadow: none !important;
+  outline: none !important;
 }
 
-/* Active states for navigation */
+/* Navigation */
 .nav-link.active {
   color: var(--messenger-primary) !important;
   border-color: var(--messenger-primary) !important;
 }
 
-/* Improved scrollbars */
+/* Scrollbars */
 .messages-container::-webkit-scrollbar,
 .contacts-list::-webkit-scrollbar {
   width: 8px;
@@ -105,10 +122,10 @@
 
 .messages-container::-webkit-scrollbar-track,
 .contacts-list::-webkit-scrollbar-track {
-  background: var(--messenger-bg);
+  background: transparent;
 }
 
-/* Button enhancements */
+/* Buttons */
 .btn-icon {
   color: var(--messenger-text);
 }
@@ -129,7 +146,7 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;

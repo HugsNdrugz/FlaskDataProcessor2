@@ -113,7 +113,6 @@ class ChatInterface {
     }
 
     handleSearch(query) {
-        // Implementation for search functionality
         query = query.toLowerCase();
         const items = this.contacts.querySelectorAll('.contact-item');
         
@@ -134,7 +133,6 @@ class ChatInterface {
             tab.classList.remove('active');
         });
         clickedTab.classList.add('active');
-        // Implement tab content switching logic here
     }
 
     async loadContacts() {
@@ -189,7 +187,7 @@ class ChatInterface {
         element.className = 'contact-item';
         element.innerHTML = `
             <div class="avatar">
-                <img src="${contact.avatar || 'default-avatar.png'}" alt="${contact.name}">
+                <img src="${contact.avatar || '/static/images/default-avatar.png'}" alt="${contact.name}">
                 ${contact.online ? '<div class="online-indicator"></div>' : ''}
             </div>
             <div class="contact-info">
