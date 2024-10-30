@@ -1,0 +1,138 @@
+/* Theme-specific styles for Facebook Messenger */
+:root {
+  /* Light theme variables */
+  --messenger-bg: var(--bs-body-bg);
+  --messenger-text: var(--bs-body-color);
+  --messenger-border: var(--bs-border-color);
+  --messenger-hover: var(--bs-secondary-bg);
+  --messenger-active: var(--bs-tertiary-bg);
+  --messenger-primary: var(--bs-primary);
+  --messenger-secondary: var(--bs-secondary);
+}
+
+[data-bs-theme="dark"] {
+  --messenger-primary: #0084ff;
+  --messenger-secondary: #3a3b3c;
+  --messenger-text: var(--bs-body-color);
+  --messenger-border: var(--bs-border-color);
+  --messenger-hover: var(--bs-secondary-bg);
+  --messenger-active: var(--bs-tertiary-bg);
+}
+
+/* Theme-specific component styles */
+.app-container {
+  background: var(--messenger-bg);
+  color: var(--messenger-text);
+}
+
+.contacts-view,
+.chat-view {
+  background: var(--messenger-bg);
+  border-color: var(--messenger-border);
+}
+
+.contact-item:hover {
+  background: var(--messenger-hover);
+}
+
+.contact-item:active {
+  background: var(--messenger-active);
+}
+
+.message-bubble {
+  border: 1px solid var(--messenger-border);
+}
+
+.message-bubble--incoming {
+  background: var(--messenger-hover);
+  color: var(--messenger-text);
+}
+
+.message-bubble--outgoing {
+  background: var(--messenger-primary);
+  color: #fff;
+}
+
+/* Enhanced search bar */
+.search-input {
+  background: var(--messenger-hover);
+  color: var(--messenger-text);
+  border: 1px solid var(--messenger-border);
+}
+
+.search-input:focus {
+  background: var(--messenger-active);
+  border-color: var(--messenger-primary);
+}
+
+/* Improved message input */
+.message-input-container {
+  border-top: 1px solid var(--messenger-border);
+  padding: 1rem;
+  background: var(--messenger-bg);
+}
+
+.message-input {
+  background: var(--messenger-hover) !important;
+  color: var(--messenger-text) !important;
+  border: 1px solid var(--messenger-border) !important;
+  border-radius: 20px !important;
+}
+
+.message-input:focus {
+  background: var(--messenger-active) !important;
+  border-color: var(--messenger-primary) !important;
+  box-shadow: none !important;
+}
+
+/* Active states for navigation */
+.nav-link.active {
+  color: var(--messenger-primary) !important;
+  border-color: var(--messenger-primary) !important;
+}
+
+/* Improved scrollbars */
+.messages-container::-webkit-scrollbar,
+.contacts-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-thumb,
+.contacts-list::-webkit-scrollbar-thumb {
+  background: var(--messenger-border);
+  border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-track,
+.contacts-list::-webkit-scrollbar-track {
+  background: var(--messenger-bg);
+}
+
+/* Button enhancements */
+.btn-icon {
+  color: var(--messenger-text);
+}
+
+.btn-icon:hover {
+  background: var(--messenger-hover);
+}
+
+.btn-icon:active {
+  background: var(--messenger-active);
+}
+
+/* Animation refinements */
+.message-bubble {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
