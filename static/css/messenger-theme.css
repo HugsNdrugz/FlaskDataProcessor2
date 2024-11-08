@@ -1,40 +1,95 @@
 /* Theme-specific styles for Facebook Messenger */
 :root {
-  /* Light theme variables */
-  --messenger-primary: #0084ff;
-  --messenger-secondary: #e4e6eb;
+  /* Light theme exact Facebook colors */
+  --messenger-primary: #0084FF;
+  --messenger-secondary: #E4E6EB;
   --messenger-text: #050505;
-  --messenger-text-secondary: #65676b;
-  --messenger-bg: #ffffff;
-  --messenger-bg-secondary: #f0f2f5;
-  --messenger-border: #dadde1;
-  --messenger-hover: #f2f2f2;
-  --messenger-active: #e5e5e5;
-  --messenger-message-in: #e4e6eb;
-  --messenger-message-out: #0084ff;
-  --messenger-message-out-text: #ffffff;
-  --messenger-search-bg: #f0f2f5;
+  --messenger-text-secondary: #65676B;
+  --messenger-bg: #FFFFFF;
+  --messenger-bg-secondary: #F0F2F5;
+  --messenger-border: #DADDE1;
+  --messenger-hover: rgba(0, 0, 0, 0.05);
+  --messenger-active: rgba(0, 0, 0, 0.1);
+  --messenger-message-in: #E4E6EB;
+  --messenger-message-out: #0084FF;
+  --messenger-message-out-text: #FFFFFF;
+  --messenger-search-bg: #F0F2F5;
+  --messenger-online: #31A24C;
+  
+  /* Layout measurements */
+  --messenger-header-height: 64px;
+  --messenger-avatar-size: 56px;
+  --messenger-radius-xs: 4px;
+  --messenger-radius-sm: 8px;
+  --messenger-radius-md: 12px;
+  --messenger-radius-lg: 18px;
+  --messenger-radius-xl: 20px;
+  
+  /* Spacing */
+  --messenger-spacing-xs: 4px;
+  --messenger-spacing-sm: 8px;
+  --messenger-spacing-md: 12px;
+  --messenger-spacing-lg: 16px;
+  --messenger-spacing-xl: 24px;
+  
+  /* Shadows and Effects */
+  --messenger-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --messenger-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
+  --messenger-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1);
+  --messenger-shadow-inset: inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  
+  /* Transitions */
+  --messenger-transition-fast: 0.15s ease;
+  --messenger-transition-normal: 0.25s ease;
 }
 
-[data-bs-theme="dark"] {
-  --messenger-primary: #0084ff;
-  --messenger-secondary: #3a3b3c;
-  --messenger-text: #e4e6eb;
-  --messenger-text-secondary: #b0b3b8;
+[data-theme="dark"] {
+  --messenger-primary: #0084FF;
+  --messenger-secondary: #3A3B3C;
+  --messenger-text: #E4E6EB;
+  --messenger-text-secondary: #B0B3B8;
   --messenger-bg: #242526;
-  --messenger-bg-secondary: #18191a;
-  --messenger-border: #393a3b;
-  --messenger-hover: #303031;
-  --messenger-active: #3a3b3c;
-  --messenger-message-in: #3a3b3c;
-  --messenger-message-out: #0084ff;
-  --messenger-message-out-text: #ffffff;
-  --messenger-search-bg: #3a3b3c;
+  --messenger-bg-secondary: #18191A;
+  --messenger-border: #3E4042;
+  --messenger-hover: rgba(255, 255, 255, 0.05);
+  --messenger-active: rgba(255, 255, 255, 0.1);
+  --messenger-message-in: #3A3B3C;
+  --messenger-message-out: #0084FF;
+  --messenger-message-out-text: #FFFFFF;
+  --messenger-search-bg: #3A3B3C;
+  --messenger-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --messenger-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --messenger-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.2);
+  --messenger-shadow-inset: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Base Typography */
+body {
+  font-family: 'Optimistic Text', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--messenger-bg-secondary);
+  color: var(--messenger-text);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6,
+.contact-name,
+.nav-link {
+  font-weight: 500;
+}
+
+/* Bold Text */
+.message-sender,
+.online-status,
+.btn-primary {
+  font-weight: 700;
 }
 
 /* Theme-specific component styles */
 .app-container {
-  background: var(--messenger-bg);
+  background: var(--messenger-bg-secondary);
   color: var(--messenger-text);
 }
 
@@ -54,16 +109,21 @@
 
 .message-bubble {
   border: none;
+  border-radius: var(--messenger-radius-lg);
+  animation: fadeIn 0.2s ease-out;
+  transition: opacity var(--messenger-transition-fast);
 }
 
 .message-bubble--incoming {
   background: var(--messenger-message-in);
   color: var(--messenger-text);
+  border-top-left-radius: var(--messenger-radius-xs);
 }
 
 .message-bubble--outgoing {
   background: var(--messenger-message-out);
   color: var(--messenger-message-out-text);
+  border-top-right-radius: var(--messenger-radius-xs);
 }
 
 /* Enhanced search bar */
@@ -71,6 +131,9 @@
   background: var(--messenger-search-bg) !important;
   color: var(--messenger-text);
   border: none !important;
+  border-radius: var(--messenger-radius-xl) !important;
+  padding: var(--messenger-spacing-md) var(--messenger-spacing-lg) !important;
+  transition: background-color var(--messenger-transition-fast);
 }
 
 .search-input:focus {
@@ -127,7 +190,9 @@
 
 /* Buttons */
 .btn-icon {
+  border-radius: var(--messenger-radius-sm);
   color: var(--messenger-text);
+  transition: all var(--messenger-transition-fast);
 }
 
 .btn-icon:hover {
@@ -136,17 +201,14 @@
 
 .btn-icon:active {
   background: var(--messenger-active);
+  transform: scale(0.95);
 }
 
-/* Animation refinements */
-.message-bubble {
-  animation: fadeIn 0.2s ease-out;
-}
-
+/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(var(--messenger-spacing-sm));
   }
   to {
     opacity: 1;

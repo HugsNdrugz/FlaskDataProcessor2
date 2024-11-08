@@ -1,0 +1,48 @@
+/* Facebook Messenger Font Definitions */
+@font-face {
+  font-family: 'Optimistic Text Normal';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Optimistic Text Normal');
+}
+
+@font-face {
+  font-family: 'Optimistic Text Medium';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('Optimistic Text Medium');
+}
+
+@font-face {
+  font-family: 'Optimistic Text Bold';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Optimistic Text Bold');
+}
+
+/* Font Classes */
+.font-normal {
+  font-family: 'Optimistic Text Normal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 400;
+}
+
+.font-medium {
+  font-family: 'Optimistic Text Medium', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 500;
+}
+
+.font-bold {
+  font-family: 'Optimistic Text Bold', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 700;
+}
+
+/* Base Typography */
+body {
+  font-family: 'Optimistic Text Normal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
